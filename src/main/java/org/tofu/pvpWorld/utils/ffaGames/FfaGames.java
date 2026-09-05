@@ -1,6 +1,7 @@
 package org.tofu.pvpWorld.utils.ffaGames;
 
 import net.kyori.adventure.text.Component;
+import org.bukkit.Sound;
 import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.itemStackMaker;
@@ -65,7 +66,7 @@ public class FfaGames {
 //            ffaSuggestPlayerJoin(arrayList);
 //            ScoreBoardUtils.setFfaScoreBoard(player, 1000, false, arrayList);
         } else if (arrayList.size() == 1) {
-            for (String PlayerName: arrayList) {
+            for (String PlayerName: new ArrayList<>(arrayList)) {
                 if (PlayerName.equals(player.getName())) {
                     e.setCancelled(true);
                     player.closeInventory();
@@ -117,7 +118,7 @@ public class FfaGames {
     public static void playerQuitByLeaveWorldAction(ArrayList<String> arrayList, String playerName, PvpWorld plugin) {
         arrayList.remove(playerName);
         if (arrayList.size() == 1) {
-            for (String PlayerName: arrayList) {
+            for (String PlayerName: new ArrayList<>(arrayList)) {
                 Player player = Objects.requireNonNull(Bukkit.getPlayer(PlayerName));
                 player.showTitle(titleMaker.title(textComponent.parse("<green>勝利"), textComponent.parse("<yellow>対戦相手が放棄しました"), 0, 3000, 0));
                 arrayList.remove(PlayerName);
@@ -140,6 +141,7 @@ public class FfaGames {
         if (SpleefActivities.spleefQueueingList.contains(player.getName())) {
             for (String PlayerName: Config.WorldAllPlayerList) {
                 Player player2 = Objects.requireNonNull(Bukkit.getPlayer(PlayerName));
+                player2.playSound(player.getLocation(), Sound.ENTITY_ARMADILLO_BRUSH, 1, 1);
                 player2.sendMessage(textComponent.parse("<yellow>[Spleef]</yellow><white>" + base));
             }
         }

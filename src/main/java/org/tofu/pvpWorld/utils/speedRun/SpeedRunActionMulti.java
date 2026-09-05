@@ -1,7 +1,5 @@
 package org.tofu.pvpWorld.utils.speedRun;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.title.Title;
 import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.itemStackMaker;
@@ -29,8 +27,10 @@ public class SpeedRunActionMulti {
     public static Location startLocation = new Location(world, 154.500, 5.000, 113.500, -90, 0),
                            wallLoc1 = new Location(world, 167, 5, 123),
                            wallLoc2 = new Location(world, 167, 14, 103),
-                           buttonLoc = new Location(world, 182, 5, 113);
-
+                           buttonLoc = new Location(world, 423, 9, 113),
+                           targetBlock1 = new Location(world, 412, 10, 107),
+                           targetBlock2 = new Location(world, 412, 10, 119),
+                           appearBlock = new Location(world, 396, 7, 113);
 //    //multi------------------
 //    public static void mutiMapSelecting(Player player) {
 //        Inventory gameList = Bukkit.createInventory(null, 9, "SpeedRun: マップ選択");
@@ -56,6 +56,7 @@ public class SpeedRunActionMulti {
         } else {
             if (multiPlayingList.isEmpty()) {
                 player.teleport(startLocation);
+                player.playSound(player.getLocation(), Sound.ENTITY_ARMADILLO_BRUSH, 1, 1);
                 multiPlayingList.add(player.getName());
                 player.sendMessage("誰もプレイしていません");
                 player.sendMessage("プレイするには最低2人が必要です!");
@@ -64,6 +65,7 @@ public class SpeedRunActionMulti {
                 player.getInventory().setItem(0, itemStackMaker.createItem(textComponent.parse("ロビーに戻る"), Material.RED_MUSHROOM, 1));
             } else if (multiPlayingList.size() == 1) {
                 player.teleport(startLocation);
+                player.playSound(player.getLocation(), Sound.ENTITY_ARMADILLO_BRUSH, 1, 1);
                 noticeToPlayer();
                 multiPlayingList.add(player.getName());
                 centrifugalPlayer = player;
@@ -73,6 +75,7 @@ public class SpeedRunActionMulti {
                 player.getInventory().setItem(0, itemStackMaker.createItem(textComponent.parse("ロビーに戻る"), Material.RED_MUSHROOM, 1));
                 SpeedRunTimerMulti.startTimer(player, plugin);
             } else {
+                player.playSound(player.getLocation(), Sound.ENTITY_ARMADILLO_BRUSH, 1, 1);
                 player.teleport(startLocation);
                 multiPlayingList.add(player.getName());
                 player.sendMessage("参加しました");
@@ -122,13 +125,19 @@ public class SpeedRunActionMulti {
 
     public static void winAction(Player player, PvpWorld plugin) throws IOException {
         canPressButton = false;
-        player.showTitle(titleMaker.title(textComponent.parse("<green>勝利"), textComponent.parse("<yellow>おめでとう!!"), 0, 60, 0));
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1, 2);
+        player.showTitle(titleMaker.title(textComponent.parse("<green>勝利"), textComponent.parse("<yellow>おめでとう!!"), 0, 5000, 0));
+        SpeedRunScheduledTimer.stopTimer(centrifugalPlayer);
+        for (String PlayerName: multiPlayingList) {
+            Player player1 = Objects.requireNonNull(Bukkit.getPlayer(PlayerName));
+            player1.setLevel(0);
+        }
         backToLobbyList.addAll(multiPlayingList);
         multiPlayingList.remove(player.getName());
         fillBlock(wallLoc1, wallLoc2, Material.GLASS);
         loseAction();
-        expUtils.playerSetExp(player, 20);
-        coinUtils.playerSetCoin(player, 28);
+        expUtils.playerSetExp(player, 30);
+        coinUtils.playerSetCoin(player, 38);
         Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
             @Override
             public void run() {
@@ -139,13 +148,14 @@ public class SpeedRunActionMulti {
                     backToLobbyList.remove(pl.getName());
                 }
             }
-        }, 60L);
+        }, 100L);
     }
 
     public static void loseAction() throws IOException {
         for (String PlayerName: multiPlayingList) {
             Player pl = Objects.requireNonNull(Bukkit.getPlayer(PlayerName));
-            pl.showTitle(titleMaker.title(textComponent.parse("<red>敗北"), textComponent.parse("<yellow>次はも頑張ろう!!"), 0, 60, 0));
+            pl.playSound(pl.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 1, 1);
+            pl.showTitle(titleMaker.title(textComponent.parse("<red>敗北"), textComponent.parse("<yellow>次も頑張ろう!!"), 0, 5000, 0));
             expUtils.playerSetExp(pl, 10);
             coinUtils.playerSetCoin(pl, 13);
             gamePlaying = false;
@@ -176,31 +186,27 @@ public class SpeedRunActionMulti {
 
 
     public static void startAction(PvpWorld plugin) {
-        //ScheduledTimer
-        centrifugalPlayer.sendMessage(textComponent.parse("okay"));
         fillBlock(wallLoc1, wallLoc2, Material.AIR);
         gamePlaying = true;
         canPressButton = true;
-        centrifugalPlayer.sendMessage(textComponent.parse("okay"));
-        SpeedRunScheduledTimer.startTimer(centrifugalPlayer, plugin, true);
-        centrifugalPlayer.sendMessage(textComponent.parse("okay"));
+        System.out.println(multiPlayingList);
         for (String PlayerName: multiPlayingList) {
-            Player pl = Objects.requireNonNull(Bukkit.getPlayer(PlayerName));
-            pl.showTitle(titleMaker.title(textComponent.parse("<aqua>スタート!"), textComponent.parse(""), 20, 20, 20));
-            pl.setLevel(0);
+            Player pl = Bukkit.getPlayer(PlayerName);
+            if (pl != null) {
+                pl.playSound(pl.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1, 1);
+                pl.showTitle(titleMaker.title(textComponent.parse("<aqua>スタート!"), textComponent.parse(""), 1000, 1000, 1000));
+                pl.setLevel(0);
+            }
         }
-        centrifugalPlayer.sendMessage("its okay");
         SpeedRunScheduledTimer.startTimer(centrifugalPlayer, plugin, true);
-        centrifugalPlayer.sendMessage("its okay nice");
     }
+
+
 
     public static void checkButton(Block block, Player player, PvpWorld plugin) throws IOException {
         if (block.getLocation().equals(buttonLoc)) {
-            player.sendMessage(textComponent.parse("wowowoowwwwwwwwww"));
             if (!canPressButton) return;
-            player.sendMessage(textComponent.parse("wonwon"));
             winAction(player, plugin);
-            player.sendMessage(textComponent.parse("you won"));
         }
     }
 
@@ -208,7 +214,8 @@ public class SpeedRunActionMulti {
     public static void promoteGames() {
         for (String PlayerName: Config.WorldAllPlayerList) {
             Player player = Objects.requireNonNull(Bukkit.getPlayer(PlayerName));
-            player.sendMessage(textComponent.parse("<gold>[SpeedRun Multi] <white>1人が対戦相手を募集中です!"));
+            player.playSound(player.getLocation(), Sound.ENTITY_ARMADILLO_BRUSH, 1, 1);
+            player.sendMessage(textComponent.parse("<gold>[SpeedRun Multi]<white>1人が対戦相手を募集中です!"));
         }
     }
 
@@ -227,5 +234,32 @@ public class SpeedRunActionMulti {
             int size = multiPlayingList.size();
             player.sendMessage(textComponent.parse("<white>" + size + "人目が参加したため、10秒追加しました!"));
         }
+    }
+
+    public static void checkArrowInfo(Location location, Player player, PvpWorld plugin) {
+        boolean isTarget1 = (location.getBlockX() == targetBlock1.getBlockX() &&
+                location.getBlockY() == targetBlock1.getBlockY() &&
+                location.getBlockZ() == targetBlock1.getBlockZ());
+
+        boolean isTarget2 = (location.getBlockX() == targetBlock2.getBlockX() &&
+                location.getBlockY() == targetBlock2.getBlockY() &&
+                location.getBlockZ() == targetBlock2.getBlockZ());
+
+
+        System.out.println("check");
+        if (isTarget1 || isTarget2) {
+            System.out.println("passed");
+            World world1 = location.getWorld();
+            Location currentLocation = new Location(world1, appearBlock.getX(), appearBlock.getY(), appearBlock.getZ());
+            currentLocation.getBlock().setType(Material.GOLD_BLOCK);
+            player.sendMessage(textComponent.parse("<gold>足場が出現しました!"));
+            Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+                @Override
+                public void run() {
+                    currentLocation.getBlock().setType(Material.AIR);
+                }
+            }, 20L);
+        }
+
     }
 }

@@ -1,6 +1,7 @@
 package org.tofu.pvpWorld.worldEvents;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -30,9 +31,10 @@ public class asyncChatEvent implements Listener {
         Player player = e.getPlayer();
         World world = player.getWorld();
         if (this.world != world) return;
-        String comment = e.toString();
+        String comment = PlainTextComponentSerializer.plainText().serialize(e.message()).trim();
         if (Config.NoWalkList.contains(player.getName())) {
             Config.compair(player, comment);
+            e.setCancelled(true);
         }
     }
 }

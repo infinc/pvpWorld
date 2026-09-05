@@ -2,6 +2,8 @@ package org.tofu.pvpWorld;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.tofu.pvpWorld.utils.itemStackMaker;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.tofu.pvpWorld.utils.ffaGames.SpleefActivities;
@@ -19,7 +21,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -123,16 +124,13 @@ public class Config extends JavaPlugin {
             player.sendMessage(textComponent.parse("<green>合格!"));
             NoWalkList.remove(player.getName());
         } else {
+            player.playSound(player.getLocation(), Sound.BLOCK_BUBBLE_COLUMN_WHIRLPOOL_INSIDE, 1, 1);
             player.sendMessage(textComponent.parse("<red>間違えてしまった!"));
             player.sendMessage(Component.text(String.valueOf(result)));
             Title.Times times = Title.Times.times(Duration.ofSeconds(1), Duration.ofSeconds(4), Duration.ofSeconds(1));
-            player.showTitle(Title.title(textComponent.parse("<red>脱落"), textComponent.parse("<aqua>再挑戦しよう!"), times));
-            Config.clearInventory(player);
-            player.getInventory().setItem(0, itemStackMaker.createItem(textComponent.parse("<white>ロビーに戻る"), Material.RED_MUSHROOM, 1));
-            SpeedRunSingleList.remove(player.getName());
-            NoWalkList.remove(player.getName());
-            SpeedRunScheduledTimer.stopTimer(player);
-            player.setExp(0);
+            player.showTitle(Title.title(textComponent.parse("<red>ペナルティ"), textComponent.parse("鈍足"), times));
+            PotionEffect slowness = new PotionEffect(PotionEffectType.SLOWNESS, 100, 10);
+            player.addPotionEffect(slowness);
         }
     }
 
@@ -149,41 +147,7 @@ public class Config extends JavaPlugin {
         quit = player.getInventory().getItem(11);
     }
 
-    public static void systemConfigSetUp(PvpWorld plugin) {
-        systemConfigFile = new File(plugin.getDataFolder(), "systemConfig.yml");
-        if (!systemConfigFile.exists()) {
-            try {
-                systemConfigFile.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        systemConfig = YamlConfiguration.loadConfiguration(systemConfigFile);
-    }
 
-    public static String systemConfigGetItem(String request) {
-        if (request.equals("athleticTime")) {
-            long nowTime = System.currentTimeMillis();
-            long before = systemConfig.getLong("systemConfig.athleticTime");
-            long difference = nowTime - before;
-            long twoWeek = 24L * 60 * 60 * 1000 * 14;
-            if (twoWeek > difference) {
-                return "false";
-            } else {
-                return "true";
-            }
-        }
-        else return null;
-    }
-
-    public static void setSystemConfigAthleticTime(long time) {
-        systemConfig.set("Config.athleticTime", time);
-        try {
-            systemConfig.save(systemConfigFile);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     public static boolean overLappingTrigger(Player player) {
         String playerName = player.getName();
