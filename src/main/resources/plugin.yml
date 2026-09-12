@@ -1,14 +1,8 @@
 name: pvpWorld
-version: '1.0-SNAPSHOT'
+version: '${version}'
 main: org.tofu.pvpWorld.PvpWorld
 api-version: '1.21'
-load: STARTUP
 commands:
   pvpworld:
-    description: sendMessage about this world
-  pvpworld help:
-    description: sendMessage about help
-  pvpworld command:
-    description: sendMessage all comamnds
-  pvpworld notice:
-    description: sendMessage notifications
+    description: PVP WORLDの情報・ヘルプ・お知らせを表示します
+    usage: /pvpworld [help|command|notice|op|actions]

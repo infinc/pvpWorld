@@ -28,7 +28,7 @@ public class athleticTimeUtils {
                 plugin.getDataFolder().mkdirs();
                 playerLobbyAthleticTimeFile.createNewFile();
             } catch (IOException e) {
-                e.printStackTrace();
+                plugin.getLogger().warning("playerAthleticTime.yml の作成に失敗しました: " + e.getMessage());
             }
         }
         playerLobbyAthleticTimeData = YamlConfiguration.loadConfiguration(playerLobbyAthleticTimeFile);
@@ -47,24 +47,20 @@ public class athleticTimeUtils {
     public static void setPlayerLobbyAthleticTime(Player player, int playerScore, boolean hasForce) {
         String uuid = player.getUniqueId().toString();
 
-        if (hasForce || getPlayerLobbyAthleticTime(player) > playerScore) {
-            if (!hasForce) player.sendMessage("upload");
+        if (!hasForce && getPlayerLobbyAthleticTime(player) <= playerScore) return;
 
-            playerLobbyAthleticTimeData.set(uuid, playerScore);
+        playerLobbyAthleticTimeData.set(uuid, playerScore);
 
-            try {
-                playerLobbyAthleticTimeData.save(playerLobbyAthleticTimeFile);
-                if (!hasForce) player.sendMessage("upload finish");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            sortEntries();
-            TextDisplayUtils.latestRanking();
-            ScoreBoardUtils.updateScoreBoard(player);
-
-            if (!hasForce) player.sendMessage("updated");
+        try {
+            playerLobbyAthleticTimeData.save(playerLobbyAthleticTimeFile);
+        } catch (IOException e) {
+            PvpWorld.getPlugin(PvpWorld.class).getLogger()
+                    .warning("playerAthleticTime.yml の保存に失敗しました: " + e.getMessage());
         }
+
+        sortEntries();
+        TextDisplayUtils.latestRanking();
+        ScoreBoardUtils.updateScoreBoard(player);
     }
 
     public static void sortEntries() {
@@ -76,12 +72,21 @@ public class athleticTimeUtils {
         entryList.sort(Map.Entry.comparingByValue());
     }
 
+    private static String resolveName(String uuid) {
+        try {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+            String name = offlinePlayer.getName();
+            return name != null ? name : "Unknown";
+        } catch (IllegalArgumentException e) {
+            return "Unknown";
+        }
+    }
+
     public static Component getRanking(int x) {
         int index = x - 1;
         if (index >= 0 && index < entryList.size()) {
             Map.Entry<String, Integer> entry = entryList.get(index);
-            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey()));
-            String playerName = offlinePlayer.getName();
+            String playerName = resolveName(entry.getKey());
             return textComponent.parse("<gold>" + x + "位 - <white>" + playerName + ": <red>" + entry.getValue());
         } else {
             return textComponent.parse("<gold>" + x + "位 - <white>N/A");

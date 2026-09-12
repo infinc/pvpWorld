@@ -1,6 +1,5 @@
 package org.tofu.pvpWorld.utils.yamlProperties;
 
-import net.kyori.adventure.text.Component;
 import org.tofu.pvpWorld.PvpWorld;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -26,7 +25,7 @@ public class playerAdminList {
                 plugin.getDataFolder().mkdirs();
                 playerAdminListFile.createNewFile();
             } catch (IOException e) {
-                e.printStackTrace();
+                plugin.getLogger().warning("playerAdminList.yml の作成に失敗しました: " + e.getMessage());
             }
         }
         playerAdminListData = YamlConfiguration.loadConfiguration(playerAdminListFile);
@@ -42,7 +41,8 @@ public class playerAdminList {
             try {
                 playerAdminListData.save(playerAdminListFile);
             } catch (IOException e) {
-                e.printStackTrace();
+                PvpWorld.getPlugin(PvpWorld.class).getLogger()
+                        .warning("playerAdminList.yml の保存に失敗しました: " + e.getMessage());
             }
             player.sendMessage(textComponent.parse(player.getName() + ": 正常に追加されました"));
         } else {
@@ -66,7 +66,8 @@ public class playerAdminList {
             try {
                 playerAdminListData.save(playerAdminListFile);
             } catch (IOException e) {
-                e.printStackTrace();
+                PvpWorld.getPlugin(PvpWorld.class).getLogger()
+                        .warning("playerAdminList.yml の保存に失敗しました: " + e.getMessage());
             }
             player.sendMessage(textComponent.parse(player.getName() + ": 正常に削除しました"));
         } else {
@@ -83,16 +84,15 @@ public class playerAdminList {
             player.sendMessage(textComponent.parse("一覧"));
             for (String uuid: uuidList) {
                 try {
-                    UUID uuidFull = UUID.fromString(uuid);
-                    OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuidFull);
+                    OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
                     String playerName = offlinePlayer.getName();
 
-                    if (playerName == null) continue; // return; だと途中で処理が止まってしまうため continue に修正
+                    if (playerName == null) continue;
 
                     player.sendMessage(textComponent.parse(playerName));
-
                 } catch (IllegalArgumentException e) {
-                    e.printStackTrace();
+                    PvpWorld.getPlugin(PvpWorld.class).getLogger()
+                            .warning("playerAdminList.yml に不正なUUIDがあります: " + uuid);
                 }
             }
         }

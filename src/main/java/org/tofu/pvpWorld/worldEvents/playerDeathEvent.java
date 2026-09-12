@@ -1,6 +1,5 @@
 package org.tofu.pvpWorld.worldEvents;
 
-import net.kyori.adventure.text.Component;
 import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.itemStackMaker;
@@ -8,61 +7,55 @@ import org.tofu.pvpWorld.utils.oneVersusOne.TopfightActivities;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
-import java.io.IOException;
-import java.util.Objects;
+import java.util.List;
 
 import static org.tofu.pvpWorld.utils.yamlProperties.coinUtils.playerSetCoin;
 import static org.tofu.pvpWorld.utils.yamlProperties.expUtils.playerSetExp;
 
-public class playerDeathEvent implements Listener {
-    PvpWorld plugin;
-
-    private World world;
+public final class playerDeathEvent implements Listener {
+    private final PvpWorld plugin;
 
     public playerDeathEvent(PvpWorld plugin) {
         this.plugin = plugin;
-        this.plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                world = Bukkit.getWorld("pvpWorld");
-            }
-        }, 10L);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
-    public void onPlayerDeathEvent(PlayerDeathEvent e) throws IOException {
+    public void onPlayerDeathEvent(PlayerDeathEvent e) {
         Player player = e.getEntity();
+        if (!Config.isPvpWorld(player.getWorld())) return;
+
         String playerName = player.getName();
-        World world = player.getWorld();
-        if (this.world != world) return;
         e.getDrops().clear();
-        player.teleport(Config.lobby);
-        if (Config.DoNotReceiveDamageList.contains(playerName)) {
-            e.getDrops().clear();
-        } else if (Config.FreePvpPlayerList.contains(playerName)) {
-            Player killedPlayer = e.getEntity().getKiller();
-            if (killedPlayer == null) {
+        if (Config.lobby != null) player.teleport(Config.lobby);
+
+        if (Config.DoNotReceiveDamageList.contains(playerName)) return;
+
+        if (Config.FreePvpPlayerList.contains(playerName)) {
+            Player killer = player.getKiller();
+            if (killer == null) {
                 player.sendMessage(textComponent.parse("死んでしまった!!"));
                 Config.clearInventory(player);
-            } else {
-                for (String PlayerName: Config.FreePvpPlayerList) {
-                    Objects.requireNonNull(Bukkit.getPlayer(PlayerName)).sendMessage(textComponent.parse("<gold>" + playerName + "<white>は" + killedPlayer.getName() + "に殺されてしまった!!"));
-                    playerSetExp(Bukkit.getPlayer(playerName), 1);
-                }
-                playerSetExp(killedPlayer, 3);
-                playerSetCoin(killedPlayer, 7);
-                killedPlayer.getInventory().addItem(itemStackMaker.createItem(textComponent.parse("<white>金リンゴ"), Material.GOLDEN_APPLE, 1));
-                killedPlayer.sendMessage(textComponent.parse("金リンゴを入手しました"));
+                return;
             }
-        } else if (TopfightActivities.topfightQueueingList.contains(playerName)) {
 
+            for (String freePvpName : List.copyOf(Config.FreePvpPlayerList)) {
+                Player member = Bukkit.getPlayerExact(freePvpName);
+                if (member == null) continue;
+                member.sendMessage(textComponent.parse("<gold>" + playerName + "<white>は" + killer.getName() + "に殺されてしまった!!"));
+            }
+            playerSetExp(player, 1);
+            playerSetExp(killer, 3);
+            playerSetCoin(killer, 7);
+            killer.getInventory().addItem(itemStackMaker.createItem(textComponent.parse("<white>金リンゴ"), Material.GOLDEN_APPLE, 1));
+            killer.sendMessage(textComponent.parse("金リンゴを入手しました"));
+        } else if (TopfightActivities.topfightQueueingList.contains(playerName)) {
+            TopfightActivities.topfightCloseAction(player, plugin);
         }
     }
 }

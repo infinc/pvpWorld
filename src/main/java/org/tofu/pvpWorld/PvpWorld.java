@@ -2,17 +2,18 @@ package org.tofu.pvpWorld;
 
 import org.tofu.pvpWorld.pvpWorldCommand.pvpWorldCommand;
 import org.tofu.pvpWorld.utils.athletic.AthleticProperties;
+import org.tofu.pvpWorld.utils.ffaGames.SpleefActivities;
+import org.tofu.pvpWorld.utils.oneVersusOne.SumoActivities;
+import org.tofu.pvpWorld.utils.oneVersusOne.TopfightActivities;
+import org.tofu.pvpWorld.utils.speedRun.SpeedRunActionMulti;
 import org.tofu.pvpWorld.utils.textDisplay.TextDisplayUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.athleticTimeUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.coinUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.expUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.systemConfig;
 import org.tofu.pvpWorld.worldEvents.*;
-import org.bukkit.Bukkit;
-import org.bukkit.World;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.Objects;
 
 import static org.tofu.pvpWorld.utils.yamlProperties.athleticTimeUtils.lobbyAthleticSetUp;
 import static org.tofu.pvpWorld.utils.yamlProperties.coinUtils.playerCoinSetUp;
@@ -23,7 +24,44 @@ public final class PvpWorld extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // Plugin startup logic
+        playerExpSetup(this);
+        Config.playerLastLoginSetup(this);
+        lobbyAthleticSetUp(this);
+        playerCoinSetUp(this);
+        playerAdminListSetup(this);
+        systemConfig.systemConfigSetUp(this);
+        AthleticProperties.athleticYamlSetup(this);
+        expUtils.sortEntries();
+        coinUtils.sortEntries();
+        athleticTimeUtils.sortEntries();
+
+        registerListeners();
+
+        PluginCommand command = getCommand("pvpworld");
+        if (command == null) {
+            getLogger().severe("pvpworld コマンドが plugin.yml に定義されていません");
+        } else {
+            pvpWorldCommand executor = new pvpWorldCommand();
+            command.setExecutor(executor);
+            command.setTabCompleter(executor);
+        }
+
+        if (!Config.setupWorld()) {
+            getLogger().warning("ワールド '" + Config.WORLD_NAME + "' が見つからないため、ワールド内の機能は無効です");
+            return;
+        }
+
+        SpleefActivities.setupLocations(Config.world);
+        SumoActivities.setupLocations(Config.world);
+        TopfightActivities.setupLocations(Config.world);
+        SpeedRunActionMulti.setupLocations(Config.world);
+        TextDisplayUtils.locationSetUp();
+        AthleticProperties.setup();
+
+        getLogger().info("pvpWorld enabled!");
+    }
+
+    private void registerListeners() {
         new playerChangeWorldEvent(this);
         new playerDeathEvent(this);
         new playerRespawnEvent(this);
@@ -39,25 +77,10 @@ public final class PvpWorld extends JavaPlugin {
         new playerInteractAtEntityEvent(this);
         new playerOpenSignEvent(this);
         new projectileHitEvent(this);
-        Objects.requireNonNull(getCommand("pvpworld")).setExecutor(new pvpWorldCommand());
-        World world = Bukkit.getWorld("pvpWorld");
-        if (world == null) return;
-        playerExpSetup(this);
-        Config.playerLastLoginSetup(this);
-        lobbyAthleticSetUp(this);
-        playerCoinSetUp(this);
-        playerAdminListSetup(this);
-        systemConfig.systemConfigSetUp(this);
-        expUtils.sortEntries();
-        coinUtils.sortEntries();
-        athleticTimeUtils.sortEntries();
-        AthleticProperties.setup();
-        TextDisplayUtils.locationSetUp();
-        getLogger().info("pvpWorld enabled!");
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        getServer().getScheduler().cancelTasks(this);
     }
 }

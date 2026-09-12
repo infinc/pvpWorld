@@ -28,7 +28,7 @@ public class coinUtils {
                 plugin.getDataFolder().mkdirs();
                 playerCoinDataFile.createNewFile();
             } catch (IOException e) {
-                e.printStackTrace();
+                plugin.getLogger().warning("playerCoin.yml の作成に失敗しました: " + e.getMessage());
             }
         }
         playerCoinData = YamlConfiguration.loadConfiguration(playerCoinDataFile);
@@ -49,13 +49,18 @@ public class coinUtils {
         try {
             playerCoinData.save(playerCoinDataFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            PvpWorld.getPlugin(PvpWorld.class).getLogger()
+                    .warning("playerCoin.yml の保存に失敗しました: " + e.getMessage());
         }
 
         sortEntries();
         TextDisplayUtils.latestRanking();
 
-        player.sendMessage(textComponent.parse("<gold>+" + coin + "Coin"));
+        if (coin >= 0) {
+            player.sendMessage(textComponent.parse("<gold>+" + coin + "Coin"));
+        } else {
+            player.sendMessage(textComponent.parse("<red>" + coin + "Coin"));
+        }
         ScoreBoardUtils.updateScoreBoard(player);
     }
 
@@ -68,12 +73,21 @@ public class coinUtils {
         entryList.sort((a, b) -> b.getValue().compareTo(a.getValue()));
     }
 
+    private static String resolveName(String uuid) {
+        try {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+            String name = offlinePlayer.getName();
+            return name != null ? name : "Unknown";
+        } catch (IllegalArgumentException e) {
+            return "Unknown";
+        }
+    }
+
     public static Component getRanking(int x) {
         int index = x - 1;
         if (index >= 0 && index < entryList.size()) {
             Map.Entry<String, Integer> entry = entryList.get(index);
-            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey()));
-            String playerName = offlinePlayer.getName();
+            String playerName = resolveName(entry.getKey());
             return textComponent.parse("<gold>" + x + "位 - <white>" + playerName + ": <gold>" + entry.getValue());
         } else {
             return textComponent.parse("<gold>" + x + "位 - <white>N/A");

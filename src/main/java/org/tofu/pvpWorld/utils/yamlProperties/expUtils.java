@@ -3,7 +3,7 @@ package org.tofu.pvpWorld.utils.yamlProperties;
 import net.kyori.adventure.text.Component;
 import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.scoreBoard.ScoreBoardUtils;
-import org.tofu.pvpWorld.utils.textDisplay.TextDisplayUtils; // ←追加: TextDisplayの更新用
+import org.tofu.pvpWorld.utils.textDisplay.TextDisplayUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -29,13 +29,11 @@ public class expUtils {
                 plugin.getDataFolder().mkdirs();
                 playerExpFile.createNewFile();
             } catch (IOException e) {
-                e.printStackTrace();
+                plugin.getLogger().warning("playerExp.yml の作成に失敗しました: " + e.getMessage());
             }
         }
         playerExpData = YamlConfiguration.loadConfiguration(playerExpFile);
         sortEntries();
-
-        System.out.println("setup good");
     }
 
     public static int getPlayerExp(Player player) {
@@ -53,9 +51,9 @@ public class expUtils {
         try {
             playerExpData.save(playerExpFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            PvpWorld.getPlugin(PvpWorld.class).getLogger()
+                    .warning("playerExp.yml の保存に失敗しました: " + e.getMessage());
         }
-
 
         sortEntries();
         TextDisplayUtils.latestRanking();
@@ -73,12 +71,21 @@ public class expUtils {
         entryList.sort((a, b) -> b.getValue().compareTo(a.getValue()));
     }
 
+    private static String resolveName(String uuid) {
+        try {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(uuid));
+            String name = offlinePlayer.getName();
+            return name != null ? name : "Unknown";
+        } catch (IllegalArgumentException e) {
+            return "Unknown";
+        }
+    }
+
     public static Component getRanking(int x) {
         int index = x - 1;
         if (index >= 0 && index < entryList.size()) {
             Map.Entry<String, Integer> entry = entryList.get(index);
-            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(entry.getKey()));
-            String playerName = offlinePlayer.getName();
+            String playerName = resolveName(entry.getKey());
             return textComponent.parse("<gold>" + x + "位 - <white>" + playerName + ": <green>" + entry.getValue());
         } else {
             return textComponent.parse("<gold>" + x + "位 - <white>N/A");

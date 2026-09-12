@@ -9,93 +9,81 @@ import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.tofu.pvpWorld.utils.titleMaker;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-
-import static org.tofu.pvpWorld.utils.lobbyAthletic.AthleticTimer.tasks;
+import java.util.List;
 
 public class SpeedRunTimerMulti {
 
-    public static HashMap<Player, Integer> playerTimes = new HashMap<>();
+    private static final int COUNTDOWN_SECONDS = 16;
+
+    private static BukkitTask task;
+
+    private static int remainingTime;
 
     public static void startTimer(Player starter, PvpWorld plugin) {
-        stopTimer(SpeedRunActionMulti.multiPlayingList);
+        stopTimer();
+        remainingTime = COUNTDOWN_SECONDS;
 
-        playerTimes.put(starter, 16);
-
-        BukkitTask task = new BukkitRunnable() {
+        task = new BukkitRunnable() {
             @Override
             public void run() {
                 if (!starter.isOnline()) {
-                    this.cancel();
-                    stopTimer(SpeedRunActionMulti.multiPlayingList);
+                    stopTimer();
                     return;
                 }
 
-                int currentTime = playerTimes.getOrDefault(starter, 0);
-                int nextTime = currentTime - 1;
+                int nextTime = remainingTime - 1;
 
                 if (nextTime <= 0) {
-                    this.cancel();
-                    // 【修正】新タイマー開始の「前」にカウントダウンタスクを片付ける
-                    stopTimer(SpeedRunActionMulti.multiPlayingList);
+                    stopTimer();
                     SpeedRunActionMulti.startAction(plugin);
                     return;
                 }
 
-                if (nextTime <= 5) {
-                    sendMessage(nextTime);
-                }
+                if (nextTime <= 5) sendMessage(nextTime);
 
-                for (String playerName : SpeedRunActionMulti.multiPlayingList) {
+                for (String playerName : List.copyOf(SpeedRunActionMulti.multiPlayingList)) {
                     Player p = Bukkit.getPlayerExact(playerName);
-                    if (p != null) {
-                        p.setLevel(nextTime);
-                    }
+                    if (p != null) p.setLevel(nextTime);
                 }
 
-                playerTimes.put(starter, nextTime);
+                remainingTime = nextTime;
             }
-        }.runTaskTimer(plugin, 0, 20);
-
-        tasks.put(starter, task);
+        }.runTaskTimer(plugin, 20L, 20L);
     }
 
-    public static void addTime(Player starter, int seconds) {
-        if (playerTimes.containsKey(starter)) {
-            int newTime = playerTimes.get(starter) + seconds;
-            playerTimes.put(starter, newTime);
+    public static void addTime(int seconds) {
+        if (task == null) return;
+        remainingTime = remainingTime + seconds;
 
-            for (String playerName : SpeedRunActionMulti.multiPlayingList) {
-                Player p = Bukkit.getPlayerExact(playerName);
-                if (p != null) {
-                    p.setLevel(newTime);
-                }
-            }
-        }
-    }
-
-    public static void stopTimer(ArrayList<String> playerNames) {
-        for (String playerName : playerNames) {
+        for (String playerName : List.copyOf(SpeedRunActionMulti.multiPlayingList)) {
             Player p = Bukkit.getPlayerExact(playerName);
-            if (p != null) {
-                if (tasks.containsKey(p)) {
-                    tasks.get(p).cancel();
-                    tasks.remove(p);
-                }
-                playerTimes.remove(p);
-            }
+            if (p != null) p.setLevel(remainingTime);
         }
+    }
+
+    public static boolean isRunning() {
+        return task != null;
+    }
+
+    public static int getRemainingTime() {
+        return remainingTime;
+    }
+
+    public static void stopTimer() {
+        if (task != null) {
+            task.cancel();
+            task = null;
+        }
+        remainingTime = 0;
     }
 
     public static void sendMessage(int elapsedTime) {
-        for (String playerName : SpeedRunActionMulti.multiPlayingList) {
+        for (String playerName : List.copyOf(SpeedRunActionMulti.multiPlayingList)) {
             Player p = Bukkit.getPlayerExact(playerName);
-            if (p != null) {
-                p.playSound(p.getLocation(), Sound.BLOCK_CALCITE_PLACE, 1, 2);
-                p.sendMessage(textComponent.parse("<aqua>" + elapsedTime + "秒!"));
-                p.showTitle(titleMaker.title(textComponent.parse(String.valueOf(elapsedTime)), textComponent.parse(""), 0, 20 ,0));
-            }
+            if (p == null) continue;
+            p.playSound(p.getLocation(), Sound.BLOCK_CALCITE_PLACE, 1, 2);
+            p.sendMessage(textComponent.parse("<aqua>" + elapsedTime + "秒!"));
+            p.showTitle(titleMaker.title(textComponent.parse(String.valueOf(elapsedTime)), textComponent.parse(""), 0, 20, 0));
         }
     }
 }

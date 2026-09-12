@@ -1,16 +1,12 @@
 package org.tofu.pvpWorld.utils.lobbyAthletic;
 
-import net.kyori.adventure.text.Component;
 import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.scoreBoard.ScoreBoardUtils;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.tofu.pvpWorld.utils.titleMaker;
 import org.tofu.pvpWorld.utils.yamlProperties.athleticTimeUtils;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Effect;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -19,77 +15,82 @@ import org.tofu.pvpWorld.utils.yamlProperties.coinUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.expUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.systemConfig;
 
-import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static org.tofu.pvpWorld.utils.yamlProperties.athleticTimeUtils.setPlayerLobbyAthleticTime;
 
 public class AthleticUtils {
-    public static void startAthleticAction(Player player, PvpWorld plugin) throws IOException {
-        player.sendMessage(textComponent.parse("<aqua>アスレチックスタート!"));
-        for (PotionEffect effect: player.getActivePotionEffects()) {
-            player.removePotionEffect(effect.getType());
-        }
-        if (Config.lobbyAthleticStart == null) {
+    public static void startAthleticAction(Player player, PvpWorld plugin) {
+        if (Config.lobbyAthleticStart == null || Config.lobbyAthleticStart.getWorld() == null) {
             player.sendMessage(textComponent.parse("<white>問題が発生しました"));
+            return;
         }
-        Objects.requireNonNull(Config.lobbyAthleticStart.getWorld()).playEffect(player.getLocation(), Effect.PORTAL_TRAVEL, 0, 10);
+
+        player.sendMessage(textComponent.parse("<aqua>アスレチックスタート!"));
+        clearPotionEffects(player);
+        Config.lobbyAthleticStart.getWorld().playEffect(player.getLocation(), Effect.PORTAL_TRAVEL, 0, 10);
         AthleticTimer.startTimer(player, plugin);
     }
 
-
     public static void stopAthleticAction(Player player) {
-        Map<String, Integer> TimesMap = new HashMap<>();
-        for (PotionEffect effect: player.getActivePotionEffects()) {
-            player.removePotionEffect(effect.getType());
+        if (Config.lobbyAthleticFinish == null || Config.lobbyAthleticFinish.getWorld() == null) {
+            player.sendMessage(textComponent.parse("<white>問題が発生しました"));
+            return;
         }
+
+        clearPotionEffects(player);
         player.sendMessage(textComponent.parse("<white>ゴールにつきました!おめでとうございます!"));
-        Objects.requireNonNull(Config.lobbyAthleticFinish.getWorld()).playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 2);
+        Config.lobbyAthleticFinish.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 2);
         Config.lobbyAthleticFinish.getWorld().playEffect(player.getLocation(), Effect.DRAGON_BREATH, 0, 2);
-        String playerScore = String.valueOf(player.getLevel());
+
         int playerScoreInt = player.getLevel();
+        String playerScore = String.valueOf(playerScoreInt);
         setPlayerLobbyAthleticTime(player, playerScoreInt, false);
         ScoreBoardUtils.updateScoreBoard(player);
         player.showTitle(titleMaker.title(textComponent.parse("<aqua>おめでとう!"), textComponent.parse("<aqua>" + playerScore + "秒でした!"), 1000, 2000, 1000));
         AthleticTimer.stopTimer(player);
         player.sendMessage(textComponent.parse("<white>あなたの記録は<aqua>" + playerScore + "秒<white>でした!"));
-        if (playerScoreInt <= 40 && playerScoreInt >= 36) {
-            if (systemConfig.getValueWithPlayerInfoBOOLEAN("reward.athletic.40s", player)) return;
-            systemConfig.setValueWithPlayerInfoLIST("reward.athletic.40s", player);
-            expUtils.playerSetExp(player, 20);
-            coinUtils.playerSetCoin(player, 25);
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
-            player.sendMessage(textComponent.parse("<gold>報酬を獲得しました!!"));
-            player.sendMessage(textComponent.parse("<gold>ロビーのアスレチックタイム: 40秒以内"));
-        } else if (playerScoreInt <= 35 && playerScoreInt >= 31) {
-            if (systemConfig.getValueWithPlayerInfoBOOLEAN("reward.athletic.35s", player)) return;
-            systemConfig.setValueWithPlayerInfoLIST("reward.athletic.35s", player);
-            expUtils.playerSetExp(player, 20);
-            coinUtils.playerSetCoin(player, 25);
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
-            player.sendMessage(textComponent.parse("<gold>報酬を獲得しました!!"));
-            player.sendMessage(textComponent.parse("<gold>ロビーのアスレチックタイム: 35秒以内"));
-        } else if (playerScoreInt <= 30) {
-            if (systemConfig.getValueWithPlayerInfoBOOLEAN("reward.athletic.30s", player)) return;
-            systemConfig.setValueWithPlayerInfoLIST("reward.athletic.30s", player);
-            expUtils.playerSetExp(player, 20);
-            coinUtils.playerSetCoin(player, 25);
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
-            player.sendMessage(textComponent.parse("<gold>報酬を獲得しました!!"));
-            player.sendMessage(textComponent.parse("<gold>ロビーのアスレチックタイム: 30秒以内"));
+
+        if (playerScoreInt <= 30) {
+            giveReward(player, "reward.athletic.30s", "30秒以内");
+        } else if (playerScoreInt <= 35) {
+            giveReward(player, "reward.athletic.35s", "35秒以内");
+        } else if (playerScoreInt <= 40) {
+            giveReward(player, "reward.athletic.40s", "40秒以内");
         }
-        for (String playerName2 : athleticTimeUtils.playerLobbyAthleticTimeData.getKeys(false)) {
-            int time = athleticTimeUtils.playerLobbyAthleticTimeData.getInt(playerName2);
-            TimesMap.put(playerName2, time);
-        }
+
         player.setLevel(0);
-        if (ScoreBoardUtils.getSortedKey(TimesMap).equals(player.getName())) {
+
+        Map<String, Integer> timesMap = new HashMap<>();
+        for (String uuid : athleticTimeUtils.playerLobbyAthleticTimeData.getKeys(false)) {
+            timesMap.put(uuid, athleticTimeUtils.playerLobbyAthleticTimeData.getInt(uuid));
+        }
+        if (player.getName().equals(ScoreBoardUtils.getSortedKey(timesMap))) {
             player.sendMessage(textComponent.parse("<gold>あなたは1位です!!"));
         }
-        for (String PlayerName: Config.WorldAllPlayerList) {
-            ScoreBoardUtils.updateScoreBoard(Objects.requireNonNull(Bukkit.getPlayer(PlayerName)));
+
+        for (String playerName : List.copyOf(Config.WorldAllPlayerList)) {
+            Player other = Bukkit.getPlayerExact(playerName);
+            if (other != null) ScoreBoardUtils.updateScoreBoard(other);
+        }
+    }
+
+    private static void giveReward(Player player, String rewardKey, String label) {
+        if (systemConfig.getValueWithPlayerInfoBOOLEAN(rewardKey, player)) return;
+
+        systemConfig.setValueWithPlayerInfoLIST(rewardKey, player);
+        expUtils.playerSetExp(player, 20);
+        coinUtils.playerSetCoin(player, 25);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1, 1);
+        player.sendMessage(textComponent.parse("<gold>報酬を獲得しました!!"));
+        player.sendMessage(textComponent.parse("<gold>ロビーのアスレチックタイム: " + label));
+    }
+
+    private static void clearPotionEffects(Player player) {
+        for (PotionEffect effect : List.copyOf(player.getActivePotionEffects())) {
+            player.removePotionEffect(effect.getType());
         }
     }
 

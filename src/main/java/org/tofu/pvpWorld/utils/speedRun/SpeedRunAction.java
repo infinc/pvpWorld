@@ -19,60 +19,53 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 import org.tofu.pvpWorld.utils.titleMaker;
 
-import java.util.Objects;
 import java.util.Random;
 
-
 public class SpeedRunAction {
+    private static final Random RANDOM = new Random();
+
     public static void openGameListInventory(Player player) {
         Inventory gameList = Bukkit.createInventory(null, 9, Component.text("SpeedRun: モード選択"));
         gameList.setItem(0, itemStackMaker.createItem(textComponent.parse("SpeedRunシングルプレイ"), Material.PAPER, 1));
         gameList.setItem(1, itemStackMaker.createItem(textComponent.parse("SpeedRunマルチプレイ"), Material.PAPER, 1));
-        Objects.requireNonNull(player.getPlayer()).openInventory(gameList);
-        player.sendMessage("test0000");
+        player.openInventory(gameList);
     }
-
-    //single------------
 
     public static void singleOnHoldAction(Player player, PvpWorld plugin) {
         AthleticTimer.stopTimer(player);
-        if (!Config.SpeedRunSingleOnHoldList.isEmpty()) { //誰かがプレイしている最中
+        if (!Config.SpeedRunSingleOnHoldList.isEmpty()) {
             player.sendMessage(textComponent.parse("<aqua>既に誰かがプレイしています!</aqua>"));
             player.sendMessage(textComponent.parse("<aqua>少々お待ちください</aqua>"));
             return;
-        } else { //タイマーを発動させる
-            player.sendMessage(textComponent.parse("<aqua>誰もプレイしていなかったので、開始します</aqua>"));
-            player.teleport(Config.speedRunSingleOnholdRoom);
-            player.getInventory().setItem(0, itemStackMaker.createItem(textComponent.parse("ロビーに戻る"), Material.RED_MUSHROOM, 1));
-            Config.SpeedRunSingleOnHoldList.add(player.getName());
-            player.sendMessage(String.valueOf(Config.SpeedRunSingleOnHoldList));
-            SpeedRunTimer.startTimer(player, plugin);
-            TextDisplayUtils.renameSpeedRun(Config.SpeedRunSingleList.size() + Config.SpeedRunSingleOnHoldList.size());
         }
+        player.sendMessage(textComponent.parse("<aqua>誰もプレイしていなかったので、開始します</aqua>"));
+        if (Config.speedRunSingleOnholdRoom != null) player.teleport(Config.speedRunSingleOnholdRoom);
+        player.getInventory().setItem(0, itemStackMaker.createItem(textComponent.parse("ロビーに戻る"), Material.RED_MUSHROOM, 1));
+        Config.addIfAbsent(Config.SpeedRunSingleOnHoldList, player.getName());
+        SpeedRunTimer.startTimer(player, plugin);
+        TextDisplayUtils.renameSpeedRun(Config.SpeedRunSingleList.size() + Config.SpeedRunSingleOnHoldList.size());
     }
 
     public static void startSingleMode(Player player, PvpWorld plugin) {
-        Random random = new Random();
+        if (Config.speedRunSingleMap1SpawnPoint == null) return;
         Config.speedRunSingleMap1UnderSandPoint.getBlock().setType(Material.SAND);
         Config.speedRunSingleMap1UpSandPoint.getBlock().setType(Material.SAND);
         player.teleport(Config.speedRunSingleMap1SpawnPoint);
-        long delay = 20L + random.nextInt(80);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                SpeedRunScheduledTimer.startTimer(player, plugin, false);
-                Config.SpeedRunSingleList.add(player.getName());
-                Config.speedRunSingleMap1UnderSandPoint.getBlock().setType(Material.AIR);
-                Config.speedRunSingleMap1UpSandPoint.getBlock().setType(Material.AIR);
-                player.sendMessage(textComponent.parse("<aqua>スタート!!!</aqua>"));
-            }
+        long delay = 20L + RANDOM.nextInt(80);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+            SpeedRunScheduledTimer.startTimer(player, plugin, false);
+            Config.addIfAbsent(Config.SpeedRunSingleList, player.getName());
+            Config.speedRunSingleMap1UnderSandPoint.getBlock().setType(Material.AIR);
+            Config.speedRunSingleMap1UpSandPoint.getBlock().setType(Material.AIR);
+            player.sendMessage(textComponent.parse("<aqua>スタート!!!</aqua>"));
+            TextDisplayUtils.renameSpeedRun(Config.SpeedRunSingleList.size() + Config.SpeedRunSingleOnHoldList.size());
         }, delay);
     }
 
     public static void randomEvent(Player player, PvpWorld plugin) {
-        Random random = new Random();
-        int ran = 1 + random.nextInt(11); //1~10
-        if (ran == 1) { //プレイヤーの居場所の下に蜘蛛の巣を3秒間設置する
+        int ran = 1 + RANDOM.nextInt(11);
+        if (ran == 1) {
             Location playerLocation = player.getLocation();
             Block originalBlock = playerLocation.getBlock();
             Material material = originalBlock.getType();
@@ -86,25 +79,20 @@ public class SpeedRunAction {
                     playerLocation.getBlock().setType(material);
                 }
             }, 60L);
-        } else if (ran == 2) { //プレイヤーにスピードを3秒間与える
+        } else if (ran == 2) {
             PotionEffect speed = new PotionEffect(PotionEffectType.SPEED, 60, 2);
             player.addPotionEffect(speed);
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1, 1);
             player.sendMessage(textComponent.parse("<green>天使からのささやかな贈り物</green>"));
             player.sendMessage(textComponent.parse("<green>3秒間歩くスピードが速くなった!</green>"));
-            Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-                @Override
-                public void run() {
-                    player.getActivePotionEffects().clear();
-                }
-            }, 60L);
-        } else if (ran == 3) { //プレイヤーにジャンプを3秒間与える
+            Bukkit.getScheduler().runTaskLater(plugin, () -> player.removePotionEffect(PotionEffectType.SPEED), 60L);
+        } else if (ran == 3) {
             PotionEffect jump = new PotionEffect(PotionEffectType.JUMP_BOOST, 60, 2);
             player.addPotionEffect(jump);
             player.playSound(player.getLocation(), Sound.ENTITY_CAT_AMBIENT, 1, 1);
             player.sendMessage(textComponent.parse("<green>天使からのささやかな贈り物</green>"));
             player.sendMessage(textComponent.parse("<green>3秒間ジャンプしたときの高さが高くなった!</green>"));
-        } else if (ran == 4) { //3秒間プレイヤーを動かなくする
+        } else if (ran == 4) {
             Config.NoWalkList.add(player.getName());
             player.playSound(player.getLocation(), Sound.ENTITY_GHAST_SHOOT,1 ,1);
             player.sendMessage(textComponent.parse("<red>宇宙人の攻撃</red>"));
@@ -115,41 +103,39 @@ public class SpeedRunAction {
                     Config.NoWalkList.remove(player.getName());
                 }
             }, 60L);
-        } else if (ran == 5) { //5秒間浮遊できるアイテムを渡す
+        } else if (ran == 5) {
             player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_PREPARE_MIRROR, 1, 1.6F);
             player.getInventory().addItem(itemStackMaker.createItem(textComponent.parse("浮遊する"), Material.FEATHER, 1));
             player.sendMessage(textComponent.parse("<green>空からの贈り物</green>"));
             player.sendMessage(textComponent.parse("<green>5秒間浮遊できるアイテムをゲットした!</green>"));
-        } else if (ran == 6) { //5秒間盲目になる
+        } else if (ran == 6) {
             PotionEffect blindness = new PotionEffect(PotionEffectType.BLINDNESS, 100, 1);
             player.addPotionEffect(blindness);
             player.playSound(player.getLocation(), Sound.ENTITY_MULE_DEATH, 1, 1);
             player.sendMessage(textComponent.parse("<red>地球の怒り</red>"));
             player.sendMessage(textComponent.parse("<red>5秒間盲目になってしまった!</red>"));
-        } else if (ran == 7) { //問題を出して間違えたら鈍足
+        } else if (ran == 7) {
             player.playSound(player.getLocation(), Sound.ENTITY_WANDERING_TRADER_AMBIENT, 1, 1);
             player.sendMessage(textComponent.parse("<gold>神からの挑戦状</gold>"));
             Config.NoWalkList.add(player.getName());
-            Config.setInt(player);
-        } else if (ran == 8) { //プレイヤーにランダムな方向にノックバックをかける
-            Random random2 = new Random();
-            double x = random2.nextDouble() * 2 - 1; // -1.0 ～ 1.0
-            double y = 0.5 + random2.nextDouble() * 0.5; // 0.5 ～ 1.0 (上向きを保証)
-            double z = random2.nextDouble() * 2 - 1;// -1.0 ～ 1.0
+            Config.sendQuiz(player);
+        } else if (ran == 8) {
+            double x = RANDOM.nextDouble() * 2 - 1;
+            double y = 0.5 + RANDOM.nextDouble() * 0.5;
+            double z = RANDOM.nextDouble() * 2 - 1;
             Vector direction = new Vector(x, y, z);
             direction.normalize().multiply(1);
             player.setVelocity(direction);
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1, 1);
             player.sendMessage(textComponent.parse("<yellow>知らない人からのちょっかい</yellow>"));
             player.sendMessage(textComponent.parse("<yellow>ノックバックを受けてしまった!</yellow>"));
-        } else if (ran == 9) { //1/2ラッキーブロックをあげる
+        } else if (ran == 9) {
             player.playSound(player.getLocation(), Sound.ENTITY_LLAMA_SWAG,1 ,1);
             player.getInventory().addItem(itemStackMaker.createItem(textComponent.parse("ラッキーブロック"), Material.GOLD_BLOCK, 1));
             player.sendMessage(textComponent.parse("<yellow>運試し</yellow>"));
             player.sendMessage(textComponent.parse("<yellow>1/2ラッキーブロックを入手した!</yellow>"));
             player.sendMessage(textComponent.parse("右クリックすると半分の確率で良いものを得られ、半分の確率で悪い効果を受けます"));
-        } else if (ran == 10) { //操作を反転する
-            //sound
+        } else if (ran == 10) {
             player.sendMessage(textComponent.parse("<red>キーボードの逆襲"));
             player.sendMessage(textComponent.parse("<red>7秒間操作が反転してしまっている!"));
             player.setWalkSpeed(-0.2f);
@@ -160,11 +146,10 @@ public class SpeedRunAction {
                     player.setWalkSpeed(0.2f);
                 }
             }, 70L);
-        } else if (ran == 11) { //ジャンプ強
-            //sound
+        } else if (ran == 11) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 100, 50));
-            player.sendMessage("<yellow>ジャンプ力の王からの贈り物");
-            player.sendMessage("<yellow>5秒間ジャンプ力が極端に高くなってしまった!");
+            player.sendMessage(textComponent.parse("<yellow>ジャンプ力の王からの贈り物"));
+            player.sendMessage(textComponent.parse("<yellow>5秒間ジャンプ力が極端に高くなってしまった!"));
 
         }
     }
@@ -179,51 +164,39 @@ public class SpeedRunAction {
         player.sendMessage(textComponent.parse("<aqua>---------------------------"));
     }
 
-
-    //click------------------
     public static void clickedFeather(Player player) {
-        PotionEffect levitation = new PotionEffect(PotionEffectType.LEVITATION, 100, 1);
-        player.addPotionEffect(levitation);
-        if (player.getItemInHand().getType().equals(Material.FEATHER)) {
-            player.setItemInHand(null);
-            player.sendMessage("使用しました!");
-        }
+        if (player.getInventory().getItemInMainHand().getType() != Material.FEATHER) return;
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 100, 1));
+        player.getInventory().setItemInMainHand(null);
+        player.sendMessage(Component.text("使用しました!"));
     }
 
     public static void clickedGoldBlock(Player player) {
-        Random random = new Random();
-        int randomInt = random.nextInt(2) + 1;
-        if (randomInt == 1) { //良い
+        if (player.getInventory().getItemInMainHand().getType() != Material.GOLD_BLOCK) return;
+        player.getInventory().setItemInMainHand(null);
+
+        if (RANDOM.nextInt(2) == 0) {
             player.showTitle(titleMaker.title(textComponent.parse("<gold>当たり!</gold>"), Component.empty(), 1000, 2000, 1000));
             player.getInventory().addItem(itemStackMaker.createItem(textComponent.parse("スピード"), Material.NETHER_STAR, 1));
-            player.sendMessage("右クリックで5秒間のスピードの効果を得られます!");
-            if (player.getItemInHand().getType().equals(Material.GOLD_BLOCK)) {
-                player.setItemInHand(null);
-            }
+            player.sendMessage(Component.text("右クリックで5秒間のスピードの効果を得られます!"));
         } else {
             player.showTitle(titleMaker.title(textComponent.parse("はずれ"), Component.empty(), 1000, 2000, 1000));
-            PotionEffect confusion = new PotionEffect(PotionEffectType.DARKNESS, 100, 10);
-            player.addPotionEffect(confusion);
+            player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 100, 10));
             player.sendMessage(textComponent.parse("<red>5秒間視界が歪むようになってしまった!</red>"));
-            if (player.getItemInHand().getType().equals(Material.GOLD_BLOCK)) {
-                player.setItemInHand(null);
-            }
         }
     }
 
     public static void clickedNetherStar(Player player) {
-        PotionEffect speed = new PotionEffect(PotionEffectType.SPEED, 100, 1);
-        player.addPotionEffect(speed);
-        if (player.getItemInHand().getType().equals(Material.NETHER_STAR)) {
-            player.setItemInHand(null);
-            player.sendMessage("使用しました!");
-        }
+        if (player.getInventory().getItemInMainHand().getType() != Material.NETHER_STAR) return;
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 100, 1));
+        player.getInventory().setItemInMainHand(null);
+        player.sendMessage(Component.text("使用しました!"));
     }
 
     public static void mutiMapSelecting(Player player) {
         Inventory gameList = Bukkit.createInventory(null, 9, textComponent.parse("<red>speedRun multi</red>"));
         gameList.setItem(0, itemStackMaker.createItem(textComponent.parse("SpeedRunシングルプレイ"), Material.PAPER, 1));
         gameList.setItem(1, itemStackMaker.createItem(textComponent.parse("SpeedRunマルチプレイ"), Material.PAPER, 1));
-        Objects.requireNonNull(player.getPlayer()).openInventory(gameList);
+        player.openInventory(gameList);
     }
 }

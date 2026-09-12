@@ -1,122 +1,91 @@
 package org.tofu.pvpWorld.utils.athletic;
 
+import net.kyori.adventure.text.Component;
 import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.tofu.pvpWorld.utils.textComponent;
+import org.tofu.pvpWorld.utils.textDisplay.TextDisplayUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class AthleticProperties {
-    public static Location boxDescription,
-                           boxRankingLoc;
+    public static final int DEFAULT_TIME = 10000;
 
-    public static List<String> boxDesc = new ArrayList<>(),
-                               boxRanking;
+    public static Location boxDescription, boxRankingLoc;
+
+    public static final List<Component> boxDesc = new ArrayList<>(),
+                                        boxRanking = new ArrayList<>();
 
     public static FileConfiguration atheticBoxData;
 
     public static File athleticBoxFile;
 
-    public static List<Map.Entry<String, Integer>> entryList = new ArrayList<>();
-
     public static void setup() {
+        if (Config.world == null) return;
+
         boxDescription = new Location(Config.world, 79.500, 6.000, 145.500);
         boxRankingLoc = new Location(Config.world, 75.500, 6.000, 145.500);
-        boxDesc.add("箱の中でアスレチックをします!");
-        boxDesc.add("難易度: <green>低</green>");
+
+        boxDesc.clear();
+        boxDesc.add(textComponent.parse("箱の中でアスレチックをします!"));
+        boxDesc.add(textComponent.parse("難易度: <green>低</green>"));
 
         updateRanking();
     }
 
     public static void updateRanking() {
-        boxRanking = new ArrayList<>();
-        boxRanking.add("<yellow>Box");
+        boxRanking.clear();
+        boxRanking.add(textComponent.parse("<yellow>Box"));
 
         showAllText();
     }
 
     public static void showAllText() {
-        double lineSpacing = 0.25;
-        Location boxDescLocc = boxDescription.clone();
-        Location boxRankLocc = boxRankingLoc.clone();
-        for (String lines: boxDesc) {
-            ArmorStand as = boxDescLocc.getWorld().spawn(boxDescLocc, ArmorStand.class);
-            armorStandSettings(as, lines);
-            boxDescLocc.add(0, -lineSpacing, 0);
-        }
-
-        for (String lines: boxRanking) {
-            ArmorStand as = boxRankLocc.getWorld().spawn(boxRankLocc, ArmorStand.class);
-            armorStandSettings(as, lines);
-            boxRankLocc.add(0, -lineSpacing, 0);
-        }
+        TextDisplayUtils.renderLines("athleticBoxDesc", boxDescription, boxDesc, false);
+        TextDisplayUtils.renderLines("athleticBoxRanking", boxRankingLoc, boxRanking, false);
     }
-
 
     public static void athleticYamlSetup(PvpWorld plugin) {
         athleticBoxFile = new File(plugin.getDataFolder(), "athletic.yml");
         if (!athleticBoxFile.exists()) {
             try {
-                athleticBoxFile.createNewFile();
+                if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+                    plugin.getLogger().warning("データフォルダを作成できませんでした");
+                }
+                if (!athleticBoxFile.createNewFile()) {
+                    plugin.getLogger().warning("athletic.yml を作成できませんでした");
+                }
             } catch (IOException e) {
-                e.printStackTrace();
+                plugin.getLogger().warning("athletic.yml の作成に失敗しました: " + e.getMessage());
             }
         }
         atheticBoxData = YamlConfiguration.loadConfiguration(athleticBoxFile);
     }
 
-    public static int getAthleticTime(FileConfiguration fileConfiguration, Player player, String fileName) {
-        String path = fileName + player.getUniqueId().toString();
-        if (fileConfiguration.contains(path)) {
-            return fileConfiguration.getInt(path);
-        } else {
-            return 10000;
-        }
+    public static int getAthleticTime(FileConfiguration fileConfiguration, Player player, String path) {
+        if (fileConfiguration == null) return DEFAULT_TIME;
+        return fileConfiguration.getInt(path + player.getUniqueId(), DEFAULT_TIME);
     }
 
     public static boolean setAthleticTime(FileConfiguration fileConfiguration, int time, Player player) {
-        if (fileConfiguration.equals(atheticBoxData)) {
-            if (getAthleticTime(atheticBoxData, player, "Box.") >= time) {
-                atheticBoxData.set("Box." + String.valueOf(player.getUniqueId()), time);
-                try {
-                    atheticBoxData.save(athleticBoxFile);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                return true;
-            } else return false;
-        } else return false;
-    }
+        if (atheticBoxData == null || fileConfiguration != atheticBoxData) return false;
+        if (getAthleticTime(atheticBoxData, player, "Box.") < time) return false;
 
-
-    public static void armorStandSettings(ArmorStand as, String text) {
-        as.setBasePlate(false);
-        as.setCustomNameVisible(true);
-        as.customName(textComponent.parse(text));
-        as.setArms(false);
-        as.setVisible(false);
-        as.setInvulnerable(true);
-        as.setCanPickupItems(false);
-        as.setGravity(false);
-        as.setMarker(false);
-    }
-
-    public static void removeAllText() {
-        for (Entity entity: Config.world.getEntities()) {
-            if (entity instanceof ArmorStand) {
-                entity.remove();
-            }
+        atheticBoxData.set("Box." + player.getUniqueId(), time);
+        try {
+            atheticBoxData.save(athleticBoxFile);
+        } catch (IOException e) {
+            PvpWorld.getPlugin(PvpWorld.class).getLogger()
+                    .warning("athletic.yml の保存に失敗しました: " + e.getMessage());
+            return false;
         }
+        return true;
     }
 }

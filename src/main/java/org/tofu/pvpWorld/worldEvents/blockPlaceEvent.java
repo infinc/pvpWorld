@@ -2,45 +2,24 @@ package org.tofu.pvpWorld.worldEvents;
 
 import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
-import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.tofu.pvpWorld.utils.textComponent;
 
-public class blockPlaceEvent implements Listener {
-    PvpWorld plugin;
-
-    private World world;
-
+public final class blockPlaceEvent implements Listener {
     public blockPlaceEvent(PvpWorld plugin) {
-        this.plugin = plugin;
-        this.plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                world = Bukkit.getWorld("pvpWorld");
-            }
-        }, 10L);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
     public void onBlockPlaceEvent(BlockPlaceEvent e) {
         Player player = e.getPlayer();
-        World world = player.getWorld();
-        if (this.world != world) return;
-        String playerName = player.getName();
-        if (Config.WorldAllPlayerList.contains(playerName)) {
-            if (!Config.AdminBuildModeList.contains(playerName)) {
-                e.setCancelled(true);
-                player.sendMessage(textComponent.parse("ブロックは置けません!"));
-            }
+        if (!Config.isPvpWorld(player.getWorld())) return;
+        if (Config.AdminBuildModeList.contains(player.getName())) return;
 
-        } else {
-            player.sendMessage(textComponent.parse("エラーが発生しました"));
-        }
-
+        e.setCancelled(true);
+        player.sendMessage(textComponent.parse("ブロックは置けません!"));
     }
 }

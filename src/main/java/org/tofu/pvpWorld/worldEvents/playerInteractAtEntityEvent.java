@@ -1,42 +1,42 @@
 package org.tofu.pvpWorld.worldEvents;
 
+import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.tofu.pvpWorld.utils.textDisplay.TextDisplayUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 
-public class playerInteractAtEntityEvent implements Listener {
-    PvpWorld plugin;
-
-    private World world;
-
+public final class playerInteractAtEntityEvent implements Listener {
     public playerInteractAtEntityEvent(PvpWorld plugin) {
-        this.plugin = plugin;
-        this.plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                world = Bukkit.getWorld("pvpWorld");
-            }
-        }, 10L);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
     public void onPlayerInteractAtEntityEvent(PlayerInteractAtEntityEvent e) {
-        if (e.getRightClicked() instanceof ArmorStand as) {
-            Location location = as.getLocation();
-            if (location.equals(TextDisplayUtils.expRanking) || location.equals(TextDisplayUtils.coinRanking) || location.equals(TextDisplayUtils.athleticRanking)) {
-                Player player = e.getPlayer();
-                TextDisplayUtils.latestRanking();
-                player.sendMessage(textComponent.parse("<green>スコアボードを更新しました"));
-            }
-        }
+        Player player = e.getPlayer();
+        if (!Config.isPvpWorld(player.getWorld())) return;
+        if (!(e.getRightClicked() instanceof ArmorStand as)) return;
+
+        Location location = as.getLocation();
+        if (!isNear(location, TextDisplayUtils.expRanking)
+                && !isNear(location, TextDisplayUtils.coinRanking)
+                && !isNear(location, TextDisplayUtils.athleticRanking)) return;
+
+        TextDisplayUtils.latestRanking();
+        player.sendMessage(textComponent.parse("<green>スコアボードを更新しました"));
+    }
+
+    private boolean isNear(Location location, Location target) {
+        if (target == null || target.getWorld() == null) return false;
+        if (!target.getWorld().equals(location.getWorld())) return false;
+        return Math.abs(location.getX() - target.getX()) < 1
+                && Math.abs(location.getZ() - target.getZ()) < 1
+                && location.getY() <= target.getY() + 1
+                && location.getY() >= target.getY() - 4;
     }
 }

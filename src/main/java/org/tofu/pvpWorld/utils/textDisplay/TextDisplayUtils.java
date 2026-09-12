@@ -1,31 +1,43 @@
 package org.tofu.pvpWorld.utils.textDisplay;
 
 import net.kyori.adventure.text.Component;
+import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.utils.athletic.AthleticProperties;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.tofu.pvpWorld.utils.yamlProperties.athleticTimeUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.coinUtils;
 import org.tofu.pvpWorld.utils.yamlProperties.expUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TextDisplayUtils {
+    public static final String ARMOR_STAND_TAG = "pvpWorldText";
+
+    private static final double LINE_SPACING = 0.25;
+
+    private static final int RANKING_SIZE = 10;
+
     public static Location SpeedRun, OneVersusOne, FfaGames, expRanking, coinRanking, athleticRanking;
 
     public static Component SpeedRunSize, OneVersusOneSize, FfaGamesSize;
 
     public static List<Component> exp, coin, athletic;
 
+    private static final Map<String, List<ArmorStand>> spawnedLines = new HashMap<>();
+
     private static World world;
 
     public static void locationSetUp() {
-        world = Bukkit.getWorld("pvpWorld");
+        world = Config.world;
+        if (world == null) return;
+
         SpeedRun = new Location(world, -18.500, 7.000, -0.500);
         OneVersusOne = new Location(world, 0.500, 7.000, -19.500);
         FfaGames = new Location(world, 0.500, 7.000, 18.500);
@@ -36,54 +48,28 @@ public class TextDisplayUtils {
         coinRanking = new Location(world, 6.500, 6.000, 44.000);
         athleticRanking = new Location(world, -5.500, 6.000, 55.000);
 
-        System.out.println("[PVPWORLD]loc setup finished");
+        removeAllText();
         latestRanking();
     }
 
     public static void latestRanking() {
+        if (world == null) return;
+
         exp = new ArrayList<>();
         exp.add(textComponent.parse("<green>EXP<red>ランキング"));
-        exp.add(expUtils.getRanking(1));
-        exp.add(expUtils.getRanking(2));
-        exp.add(expUtils.getRanking(3));
-        exp.add(expUtils.getRanking(4));
-        exp.add(expUtils.getRanking(5));
-        exp.add(expUtils.getRanking(6));
-        exp.add(expUtils.getRanking(7));
-        exp.add(expUtils.getRanking(8));
-        exp.add(expUtils.getRanking(9));
-        exp.add(expUtils.getRanking(10));
+        for (int i = 1; i <= RANKING_SIZE; i++) exp.add(expUtils.getRanking(i));
         exp.add(textComponent.parse("<green>クリックして更新"));
 
         coin = new ArrayList<>();
         coin.add(textComponent.parse("<gold>COIN<red>ランキング"));
-        coin.add(coinUtils.getRanking(1));
-        coin.add(coinUtils.getRanking(2));
-        coin.add(coinUtils.getRanking(3));
-        coin.add(coinUtils.getRanking(4));
-        coin.add(coinUtils.getRanking(5));
-        coin.add(coinUtils.getRanking(6));
-        coin.add(coinUtils.getRanking(7));
-        coin.add(coinUtils.getRanking(8));
-        coin.add(coinUtils.getRanking(9));
-        coin.add(coinUtils.getRanking(10));
+        for (int i = 1; i <= RANKING_SIZE; i++) coin.add(coinUtils.getRanking(i));
         coin.add(textComponent.parse("<green>クリックして更新"));
 
         athletic = new ArrayList<>();
         athletic.add(textComponent.parse("<yellow>Athletic<red>ランキング"));
-        athletic.add(athleticTimeUtils.getRanking(1));
-        athletic.add(athleticTimeUtils.getRanking(2));
-        athletic.add(athleticTimeUtils.getRanking(3));
-        athletic.add(athleticTimeUtils.getRanking(4));
-        athletic.add(athleticTimeUtils.getRanking(5));
-        athletic.add(athleticTimeUtils.getRanking(6));
-        athletic.add(athleticTimeUtils.getRanking(7));
-        athletic.add(athleticTimeUtils.getRanking(8));
-        athletic.add(athleticTimeUtils.getRanking(9));
-        athletic.add(athleticTimeUtils.getRanking(10));
+        for (int i = 1; i <= RANKING_SIZE; i++) athletic.add(athleticTimeUtils.getRanking(i));
         athletic.add(textComponent.parse("<green>クリックして更新"));
 
-        System.out.println("[PVPWORLD]ranking setup finished");
         showAllText();
     }
 
@@ -103,52 +89,63 @@ public class TextDisplayUtils {
     }
 
     public static void showAllText() {
-        removeAllText();
-        ArmorStand armorStand = SpeedRun.getWorld().spawn(SpeedRun, ArmorStand.class);
-        armorStandSettings(armorStand, SpeedRunSize, true);
+        if (world == null) return;
 
-        ArmorStand armorStand1 = OneVersusOne.getWorld().spawn(OneVersusOne, ArmorStand.class);
-        armorStandSettings(armorStand1, OneVersusOneSize, true);
-
-        ArmorStand armorStand2 = FfaGames.getWorld().spawn(FfaGames, ArmorStand.class);
-        armorStandSettings(armorStand2, FfaGamesSize, true);
-
-        Location exploc = expRanking.clone();
-        Location coinloc = coinRanking.clone();
-        Location athleticloc = athleticRanking.clone();
-        double lineSpacing = 0.25;
-
-        for (Component lines: exp) {
-            ArmorStand as = exploc.getWorld().spawn(exploc, ArmorStand.class);
-            armorStandSettings(as, lines, false);
-            exploc.add(0, -lineSpacing, 0);
-        }
-
-        for (Component lines: coin) {
-            ArmorStand as = coinloc.getWorld().spawn(coinloc, ArmorStand.class);
-            armorStandSettings(as, lines, false);
-            coinloc.add(0, -lineSpacing, 0);
-        }
-
-        for (Component lines: athletic) {
-            ArmorStand as = athleticloc.getWorld().spawn(athleticloc, ArmorStand.class);
-            armorStandSettings(as, lines, false);
-            athleticloc.add(0, -lineSpacing, 0);
-        }
+        renderLines("speedRun", SpeedRun, List.of(SpeedRunSize), true);
+        renderLines("oneVersusOne", OneVersusOne, List.of(OneVersusOneSize), true);
+        renderLines("ffaGames", FfaGames, List.of(FfaGamesSize), true);
+        if (exp != null) renderLines("expRanking", expRanking, exp, false);
+        if (coin != null) renderLines("coinRanking", coinRanking, coin, false);
+        if (athletic != null) renderLines("athleticRanking", athleticRanking, athletic, false);
 
         AthleticProperties.showAllText();
-        System.out.println("showText");
+    }
+
+    public static void renderLines(String key, Location origin, List<Component> lines, boolean marker) {
+        if (origin == null || origin.getWorld() == null) return;
+
+        List<ArmorStand> existing = spawnedLines.get(key);
+        if (existing != null && existing.size() == lines.size() && allValid(existing)) {
+            for (int i = 0; i < lines.size(); i++) {
+                existing.get(i).customName(lines.get(i));
+            }
+            return;
+        }
+
+        if (existing != null) {
+            for (ArmorStand as : existing) as.remove();
+        }
+
+        List<ArmorStand> created = new ArrayList<>(lines.size());
+        Location cursor = origin.clone();
+        for (Component line : lines) {
+            ArmorStand as = origin.getWorld().spawn(cursor.clone(), ArmorStand.class);
+            armorStandSettings(as, line, marker);
+            created.add(as);
+            cursor.add(0, -LINE_SPACING, 0);
+        }
+        spawnedLines.put(key, created);
+    }
+
+    private static boolean allValid(List<ArmorStand> stands) {
+        for (ArmorStand as : stands) {
+            if (!as.isValid()) return false;
+        }
+        return true;
     }
 
     public static void removeAllText() {
-        for (Entity entity: world.getEntities()) {
-            if (entity instanceof ArmorStand) {
+        if (world == null) return;
+        for (Entity entity : world.getEntities()) {
+            if (entity instanceof ArmorStand && entity.getScoreboardTags().contains(ARMOR_STAND_TAG)) {
                 entity.remove();
             }
         }
+        spawnedLines.clear();
     }
 
     public static void armorStandSettings(ArmorStand as, Component text, boolean marker) {
+        as.addScoreboardTag(ARMOR_STAND_TAG);
         as.setBasePlate(false);
         as.setCustomNameVisible(true);
         as.customName(text);

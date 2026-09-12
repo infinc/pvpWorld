@@ -11,95 +11,103 @@ import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Objects;
+import java.util.List;
 import java.util.Random;
 
 public class SpleefActivities {
-    public static World world = Bukkit.getWorld("pvpWorld");
+    public static final List<String> spleefQueueingList = new ArrayList<>(),
+                                     spleefPlayingList = new ArrayList<>();
 
-    public static ArrayList<String> spleefQueueingList = new ArrayList<>(),
-                                    spleefPlayingList = new ArrayList<>();
+    public static final List<Location> locationList = new ArrayList<>();
 
-    public static ArrayList<Location> locationList = new ArrayList<>();
+    private static final Random RANDOM = new Random();
 
-    public static Location spawnPoint = new Location(world, 183.500, 4.500, -24.500);
+    public static Location spawnPoint;
 
-    public static void spleefStartAction(Player player, PvpWorld plugin) {
-        player.sendMessage("4:" + spleefPlayingList);
-        for (String PlayerName: spleefQueueingList) {
-            Config.clearInventory(Objects.requireNonNull(Bukkit.getPlayer(PlayerName)));
-            Objects.requireNonNull(Bukkit.getPlayer(PlayerName)).teleport(spawnPoint);
-            ItemStack itemStack = new ItemStack(Material.DIAMOND_SHOVEL, 1);
-            Objects.requireNonNull(Bukkit.getPlayer(PlayerName)).getInventory().setItem(0, itemStack);
+    public static void setupLocations(World world) {
+        spawnPoint = new Location(world, 183.500, 4.500, -24.500);
+    }
+
+    public static ItemStack shovelItem() {
+        return new ItemStack(Material.DIAMOND_SHOVEL, 1);
+    }
+
+    public static void spleefStartAction(PvpWorld plugin) {
+        if (spleefQueueingList.isEmpty()) return;
+
+        Player timerOwner = null;
+        for (String playerName : List.copyOf(spleefQueueingList)) {
+            Player queued = Bukkit.getPlayerExact(playerName);
+            if (queued == null) {
+                spleefQueueingList.remove(playerName);
+                continue;
+            }
+            Config.clearInventory(queued);
+            if (spawnPoint != null) queued.teleport(spawnPoint);
+            queued.getInventory().setItem(0, shovelItem());
+            if (timerOwner == null) timerOwner = queued;
         }
+
+        if (timerOwner == null) {
+            spleefQueueingList.clear();
+            return;
+        }
+
         spleefPlayingList.addAll(spleefQueueingList);
-        player.sendMessage("5:" + spleefPlayingList);
         spleefQueueingList.clear();
-        TimeUpTimer.startTimer(player, plugin, 600);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                for (String PlayerName: spleefPlayingList) {
-                    Config.DoNotReceiveDamageList.remove(PlayerName);
-                }
+        TimeUpTimer.startTimer(timerOwner, plugin, 600);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            for (String playerName : List.copyOf(spleefPlayingList)) {
+                Config.DoNotReceiveDamageList.remove(playerName);
             }
         }, 100L);
     }
 
-    public static void spleefCloseAction(PvpWorld plugin) throws IOException {
+    public static void spleefCloseAction(PvpWorld plugin) {
         Config.DoNotReceiveDamageList.addAll(spleefPlayingList);
         Config.TeleportToLobbyList.addAll(spleefPlayingList);
-        for (String PlayerName: spleefPlayingList) {
-            Player player = Bukkit.getPlayer(PlayerName);
-            if (player == null) return;
-            titleMaker.title(textComponent.parse("<green>勝利"), textComponent.parse("<yellow>おめでとう!!!"), 0, 3000, 0);
+        for (String playerName : List.copyOf(spleefPlayingList)) {
+            Player player = Bukkit.getPlayerExact(playerName);
+            if (player == null) continue;
+            player.showTitle(titleMaker.title(textComponent.parse("<green>勝利"), textComponent.parse("<yellow>おめでとう!!!"), 0, 3000, 0));
             expUtils.playerSetExp(player, 10);
             coinUtils.playerSetCoin(player, 10);
         }
+        spleefPlayingList.clear();
         FfaGames.gameCloseAction(plugin);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                resetSnowBlock();
-            }
-        }, 80L);
+        Bukkit.getScheduler().runTaskLater(plugin, SpleefActivities::resetSnowBlock, 80L);
     }
 
-    public static void voidAction(Player player, PvpWorld plugin) throws IOException {
-        spleefPlayingList.remove(player.getName());
-        titleMaker.title(textComponent.parse("<red>敗北"), textComponent.parse("<yellow>もう一度挑戦しよう!"), 0, 3000, 0);
-        winnerChecker(player, plugin);
+    public static void voidAction(Player player, PvpWorld plugin) {
+        if (!spleefPlayingList.remove(player.getName())) return;
+        player.showTitle(titleMaker.title(textComponent.parse("<red>敗北"), textComponent.parse("<yellow>もう一度挑戦しよう!"), 0, 3000, 0));
         Config.clearInventory(player);
         expUtils.playerSetExp(player, 5);
         coinUtils.playerSetCoin(player, 4);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                player.teleport(Config.lobby);
-            }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (Config.lobby != null) player.teleport(Config.lobby);
         }, 60L);
+        winnerChecker(plugin);
     }
 
-    public static void winnerChecker(Player player, PvpWorld plugin) throws IOException {
-        if (spleefPlayingList.size() == 1) {
+    public static void winnerChecker(PvpWorld plugin) {
+        if (spleefPlayingList.size() <= 1) {
             spleefCloseAction(plugin);
         }
     }
 
-
     public static void snowBallAction(Player player) {
-        Random random = new Random();
-        int i = random.nextInt(10) + 1;
-        if (i <= 4) {
+        if (RANDOM.nextInt(10) + 1 <= 4) {
             player.getInventory().addItem(itemStackMaker.createItem(textComponent.parse("あぶない雪玉"), Material.SNOWBALL, 1));
         }
     }
 
     public static void resetSnowBlock() {
-        for (Location loc: locationList) {
+        for (Location loc : locationList) {
             loc.getBlock().setType(Material.SNOW_BLOCK);
         }
+        locationList.clear();
     }
 }

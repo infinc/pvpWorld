@@ -1,85 +1,70 @@
 package org.tofu.pvpWorld.utils.ffaGames;
 
-import net.kyori.adventure.text.Component;
 import org.tofu.pvpWorld.PvpWorld;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.tofu.pvpWorld.utils.titleMaker;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Objects;
-
-import static org.tofu.pvpWorld.utils.lobbyAthletic.AthleticTimer.tasks;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class StartTimerUtils {
 
-    private static BukkitRunnable timerTask;
+    private static final int COUNTDOWN_SECONDS = 16;
 
-    public static int ffaGamesTime;
+    private static final Map<UUID, BukkitTask> tasks = new HashMap<>();
 
-    public static HashMap<Player, Integer>playerTimes = new HashMap<>();
+    private static final Map<UUID, Integer> playerTimes = new HashMap<>();
 
-    public static void startTimer(Player player, PvpWorld plugin, ArrayList<String> arrayList) {
-        if (playerTimes.containsKey(player)) {
-            StartTimerUtils.stopTimer(player);
-        }
-        playerTimes.put(player, 16);
-        timerTask = new BukkitRunnable() {
+    public static void startTimer(Player player, PvpWorld plugin, List<String> arrayList) {
+        UUID uuid = player.getUniqueId();
+        stopTimer(player);
+        playerTimes.put(uuid, COUNTDOWN_SECONDS);
+
+        BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
-                int elapsedTime = playerTimes.get(player) - 1; //残り時間
-                if (elapsedTime == 0) { //cancel
-                    for (String PlayerName: new ArrayList<>(arrayList)) {
-                        if (arrayList.equals(SpleefActivities.spleefQueueingList)) {
-                            SpleefActivities.spleefStartAction(player, plugin);
-                        }
-                        Objects.requireNonNull(Bukkit.getPlayer(PlayerName)).setLevel(0);
+                int elapsedTime = playerTimes.getOrDefault(uuid, 0) - 1;
+
+                if (elapsedTime <= 0) {
+                    for (String playerName : List.copyOf(arrayList)) {
+                        Player queued = Bukkit.getPlayerExact(playerName);
+                        if (queued != null) queued.setLevel(0);
                     }
                     stopTimer(player);
-                    StartTimerUtils.getTaskId(player).cancel();
+                    if (arrayList == SpleefActivities.spleefQueueingList) {
+                        SpleefActivities.spleefStartAction(plugin);
+                    }
                     return;
                 }
-                if (elapsedTime <= 5) {
-                    for (String PlayerName: arrayList) {
-                        player.sendMessage("3sc:" + arrayList);
-                        sendMessage(Objects.requireNonNull(Bukkit.getPlayer(PlayerName)), elapsedTime);
-                    }
-                }
-                playerTimes.put(player, elapsedTime);
-                for (String PlayerName: arrayList) {
-                    Objects.requireNonNull(Bukkit.getPlayer(PlayerName)).setLevel(elapsedTime);
+
+                playerTimes.put(uuid, elapsedTime);
+                for (String playerName : List.copyOf(arrayList)) {
+                    Player queued = Bukkit.getPlayerExact(playerName);
+                    if (queued == null) continue;
+                    queued.setLevel(elapsedTime);
+                    if (elapsedTime <= 5) sendMessage(queued, elapsedTime);
                 }
             }
-        };
-        tasks.put(player, timerTask.runTaskTimer(PvpWorld.getPlugin(PvpWorld.class), 0, 20));
+        }.runTaskTimer(plugin, 20L, 20L);
+
+        tasks.put(uuid, task);
     }
 
-    public static BukkitTask getTaskId(Player player) {
-        return PvpWorld.getPlugin(PvpWorld.class).getServer().getScheduler().runTaskTimer(PvpWorld.getPlugin(PvpWorld.class), new Runnable() {
-            @Override
-            public void run() {
-                if (ffaGamesTime == 0) {
-                    player.sendMessage(textComponent.parse("<aqua>test"));
-                    return;
-                }
-                player.setLevel(ffaGamesTime);
-                ffaGamesTime--;
-            }
-        }, 0, 10);
-    }
     public static void stopTimer(Player player) {
-        if (tasks.get(player) != null) {
-            tasks.get(player).cancel();
-        }
+        UUID uuid = player.getUniqueId();
+        BukkitTask task = tasks.remove(uuid);
+        if (task != null) task.cancel();
+        playerTimes.remove(uuid);
     }
 
     public static void sendMessage(Player player, int elapsedTime) {
         player.sendMessage(textComponent.parse("<aqua>" + elapsedTime + "秒!"));
-        player.showTitle(titleMaker.title(textComponent.parse(String.valueOf(elapsedTime)), textComponent.parse(""), 0, 20 ,0));
+        player.showTitle(titleMaker.title(textComponent.parse(String.valueOf(elapsedTime)), textComponent.parse(""), 0, 20, 0));
     }
 }

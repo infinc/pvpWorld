@@ -3,53 +3,40 @@ package org.tofu.pvpWorld.worldEvents;
 import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
 import org.tofu.pvpWorld.utils.ffaGames.SpleefActivities;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.inventory.ItemStack;
 import org.tofu.pvpWorld.utils.textComponent;
 
-public class blockBreakEvent implements Listener {
-    PvpWorld plugin;
-
-    private World world;
-
+public final class blockBreakEvent implements Listener {
     public blockBreakEvent(PvpWorld plugin) {
-        this.plugin = plugin;
-        this.plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                world = Bukkit.getWorld("pvpWorld");
-            }
-        }, 10L);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
     public void onBlockBreakEvent(BlockBreakEvent e) {
         Player player = e.getPlayer();
+        if (!Config.isPvpWorld(player.getWorld())) return;
+
         String playerName = player.getName();
-        World world = player.getWorld();
-        Material material = e.getBlock().getType();
-        if (this.world != world) return;
-        if (material == null) return;
         if (Config.AdminBuildModeList.contains(playerName)) return;
-        if (SpleefActivities.spleefPlayingList.contains(playerName)) {
-            ItemStack itemStack = new ItemStack(Material.DIAMOND_SHOVEL, 1);
-            if (player.getItemInHand().equals(itemStack)) {
-                e.getBlock().setType(Material.AIR);
-                SpleefActivities.snowBallAction(player);
-                Location location = e.getBlock().getLocation();
-                SpleefActivities.locationList.add(location);
-            }
-        } else {
+
+        if (!SpleefActivities.spleefPlayingList.contains(playerName)) {
             e.setCancelled(true);
             player.sendMessage(textComponent.parse("地形は破壊できません!"));
+            return;
         }
+
+        if (player.getInventory().getItemInMainHand().getType() != Material.DIAMOND_SHOVEL
+                || e.getBlock().getType() != Material.SNOW_BLOCK) {
+            e.setCancelled(true);
+            return;
+        }
+
+        e.setDropItems(false);
+        SpleefActivities.locationList.add(e.getBlock().getLocation());
+        SpleefActivities.snowBallAction(player);
     }
 }

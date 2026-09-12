@@ -1,6 +1,5 @@
 package org.tofu.pvpWorld.worldEvents;
 
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.pvpWorld.Config;
@@ -14,169 +13,156 @@ import org.tofu.pvpWorld.utils.speedRun.SpeedRunAction;
 import org.tofu.pvpWorld.utils.speedRun.SpeedRunActionMulti;
 import org.tofu.pvpWorld.utils.textComponent;
 import org.tofu.pvpWorld.utils.wellUtils.WellUtilities;
-import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
+import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 
-
-import java.io.IOException;
-
 import java.util.Objects;
-
 
 import static org.tofu.pvpWorld.utils.oneVersusOne.InventoryUtils.openGameListInventory;
 
-public class playerInteractEvent implements Listener {
-    PvpWorld plugin;
-
-    private World world;
+public final class playerInteractEvent implements Listener {
+    private final PvpWorld plugin;
 
     public playerInteractEvent(PvpWorld plugin) {
         this.plugin = plugin;
-        this.plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                world = Bukkit.getWorld("pvpWorld");
-            }
-        }, 10L);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
-    public void onPlayerInteractEvent(PlayerInteractEvent e) throws IOException {
+    public void onPlayerInteractEvent(PlayerInteractEvent e) {
         Player player = e.getPlayer();
-        World world = player.getWorld();
-        if (this.world != world) return;
+        if (!Config.isPvpWorld(player.getWorld())) return;
         if (Config.AdminBuildModeList.contains(player.getName())) return;
 
-        if (e.getAction().equals(Action.PHYSICAL)) {
-            if(Objects.requireNonNull(e.getClickedBlock()).getType() == Material.STONE_PRESSURE_PLATE) {
-                if (Math.floor(e.getClickedBlock().getLocation().getX()) == Math.floor(Config.lobbyAthleticFinish.getX()) && Math.floor(e.getClickedBlock().getLocation().getY()) == Math.floor(Config.lobbyAthleticFinish.getY()) && Math.floor(e.getClickedBlock().getZ()) == Math.floor(Config.lobbyAthleticFinish.getZ())) {
-                    if (player.getLevel() == 0) {
-                        player.sendMessage(textComponent.parse("<aqua>あなたのタイムは現在0です。"));
-                        player.sendMessage(textComponent.parse("<aqua>もう一度アスレチックに挑戦しましょう!"));
-                        return;
-                    }
-                    if (Config.lobbyAthleticFinish.getWorld() == null) {
-                        player.sendMessage(Component.text("問題が発生しました"));
-                    }
-                    AthleticUtils.stopAthleticAction(player);
-                }
+        if (e.getAction() == Action.PHYSICAL) {
+            handlePressurePlate(e, player);
+        } else if (e.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            handleRightClickBlock(e, player);
+        } else if (e.getAction() == Action.RIGHT_CLICK_AIR) {
+            handleRightClickAir(player);
+        }
+    }
 
-                else if (Math.floor(e.getClickedBlock().getLocation().getX()) == Math.floor(Config.lobbyAthleticStart.getX()) && Math.floor(e.getClickedBlock().getLocation().getY()) == Math.floor(Config.lobbyAthleticStart.getY()) && Math.floor(e.getClickedBlock().getZ()) == Math.floor(Config.lobbyAthleticStart.getZ())) {
-                    if(Config.lobbyAthleticStart.getWorld() == null) {
-                        player.sendMessage(Component.text("問題が発生しました"));
-                    }
-                    AthleticUtils.startAthleticAction(player, plugin);
+    private void handlePressurePlate(PlayerInteractEvent e, Player player) {
+        Block block = e.getClickedBlock();
+        if (block == null || block.getType() != Material.STONE_PRESSURE_PLATE) return;
+
+        if (isSameBlock(block, Config.lobbyAthleticFinish)) {
+            if (player.getLevel() == 0) {
+                player.sendMessage(textComponent.parse("<aqua>あなたのタイムは現在0です。"));
+                player.sendMessage(textComponent.parse("<aqua>もう一度アスレチックに挑戦しましょう!"));
+                return;
+            }
+            AthleticUtils.stopAthleticAction(player);
+        } else if (isSameBlock(block, Config.lobbyAthleticStart)) {
+            AthleticUtils.startAthleticAction(player, plugin);
+        }
+    }
+
+    private boolean isSameBlock(Block block, Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        if (!location.getWorld().equals(block.getWorld())) return false;
+        return block.getX() == location.getBlockX()
+                && block.getY() == location.getBlockY()
+                && block.getZ() == location.getBlockZ();
+    }
+
+    private void handleRightClickBlock(PlayerInteractEvent e, Player player) {
+        Block block = e.getClickedBlock();
+        if (block == null) return;
+
+        if (block.getType() == Material.OAK_SIGN || block.getType() == Material.OAK_WALL_SIGN) {
+            if (!(block.getState() instanceof Sign sign)) return;
+
+            ItemStack item = e.getItem();
+            if (item != null) {
+                Material material = item.getType();
+                boolean isDye = material.name().endsWith("_DYE");
+                boolean isInk = (material == Material.INK_SAC || material == Material.GLOW_INK_SAC);
+                if (isDye || isInk) {
+                    e.setCancelled(true);
+                    player.sendMessage(textComponent.parse("染料以外のアイテムか素手でクリックしてください!"));
+                    return;
                 }
             }
-        } else if (e.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            if (Config.AdminBuildModeList.contains(player.getName())) return;
-            Block block = e.getClickedBlock();
-            if (block == null) return;
+
+            String[] lines = new String[4];
+            for (int i = 0; i < 4; i++) {
+                lines[i] = PlainTextComponentSerializer.plainText().serialize(sign.getSide(Side.FRONT).line(i));
+            }
 
             if (block.getType() == Material.OAK_SIGN) {
-                Sign sign = (Sign) block.getState();
-                if (sign == null) return;
-                String[] lines = new String[4];
-                if (e.getItem() != null) {
-                    Material material = e.getItem().getType();
-                    boolean isDye = material.name().endsWith("_DYE");
-                    boolean isInk = (material == Material.INK_SAC || material == Material.GLOW_INK_SAC);
-                    if (isInk || isDye) e.setCancelled(true);
-                }
-                for (int i = 0; i < 4; i++) {
-                    lines[i] = PlainTextComponentSerializer.plainText().serialize(sign.line(i));
-                }
-
-                if (Objects.equals(lines[0], "ルール説明")) {
-                    if (Objects.equals(lines[1], "SpeedRun")) {
-                        if (Objects.equals(lines[2], "シングルプレイ")) {
-                            SpeedRunAction.ruleDescription(player);
-                        }
-                    } else if (Objects.equals(lines[1], "FreePVP")) {
-                        FreePvpUtils.ruleExplain(player);
-                    }
-                }
-            } else if (block.getType() == Material.OAK_WALL_SIGN) {
-                Sign sign = (Sign) block.getState();
-                if (sign == null) return;
-                if (e.getItem() != null) {
-                    Material material = e.getItem().getType();
-                    boolean isDye = material.name().endsWith("_DYE");
-                    boolean isInk = (material == Material.INK_SAC || material == Material.GLOW_INK_SAC);
-                    if (isInk || isDye) {
-                        if (Config.AdminBuildModeList.contains(player.getName())) return;
-                        e.setCancelled(true);
-                    }
-                    player.sendMessage(textComponent.parse("染料以外のアイテムか素手でクリックしてください!"));
-                }
-                String[] lines = new String[4];
-                for (int i = 0; i < 4; i++) {
-                    lines[i] = PlainTextComponentSerializer.plainText().serialize(sign.line(i));
-                }
-                if (Objects.equals(lines[0], "SpeedRunTest")) {
-                    if (Config.overLappingTrigger(player)) {
-                        Config.overLappingMessage(player);
-                        return;
-                    }
-                    SpeedRunAction.openGameListInventory(player);
-                } else if (Objects.equals(lines[0], "1v1test")) {
-                    if (Config.overLappingTrigger(player)) {
-                        Config.overLappingMessage(player);
-                        return;
-                    }
-                    openGameListInventory(player);
-                } else if (Objects.equals(lines[0], "FFA Games test")) {
-                    if (Config.overLappingTrigger(player)) {
-                        Config.overLappingMessage(player);
-                        return;
-                    }
-                    InventoryUtils.openGameListInventory(player);
-                } else if (Objects.equals(lines[0], "右クリックして")) {
-                    if (Objects.equals(lines[1], "あなたのスコアを")) {
-                        if (Objects.equals(lines[2], "リセットします")) {
-                            AthleticUtils.sendClearAthleticTimeRequest(player);
-                        }
-                    } else if (Objects.equals(lines[1], "弓と矢をゲット")) {
-                        ItemStack arrow = new ItemStack(Material.ARROW, 1);
-                        ItemStack bow = new ItemStack(Material.BOW, 1);
-                        player.getInventory().addItem(arrow);
-                        player.getInventory().addItem(bow);
-                    }
-                }
-            } else if (block.getType() == Material.END_PORTAL_FRAME) {
-                WellUtilities.openInventory(player);
-            } else if (block.getType() == Material.OAK_BUTTON) {
-                SpeedRunActionMulti.checkButton(block, player, plugin);
+                handleRuleSign(player, lines);
+            } else {
+                handleWallSign(player, lines);
             }
-        } else if (e.getAction() == Action.RIGHT_CLICK_AIR) {
-            Material block = player.getInventory().getItemInMainHand().getType();
-            if (block == null) return;
+        } else if (block.getType() == Material.END_PORTAL_FRAME) {
+            WellUtilities.openInventory(player);
+        } else if (block.getType() == Material.OAK_BUTTON) {
+            SpeedRunActionMulti.checkButton(block, player, plugin);
+        }
+    }
 
-            if (block == Material.RED_MUSHROOM) {
-                Config.beforeGame(player);
-                player.sendMessage(textComponent.parse("okay11"));
-                player.teleport(Config.lobby);
-                player.sendMessage(textComponent.parse("okay11"));
-            } else if (block == Material.FEATHER) {
-                SpeedRunAction.clickedFeather(player);
-            } else if (block == Material.GOLD_BLOCK) {
-                SpeedRunAction.clickedGoldBlock(player);
-            } else if (block == Material.NETHER_STAR) {
-                SpeedRunAction.clickedNetherStar(player);
-            } else if (block == Material.RED_DYE) {
-                OneVersusOneGames.clickedRed_Dye(player);
-            } else if (block == Material.BLUE_DYE) {
-                FfaGames.clickedBlue_Dye(player);
+    private void handleRuleSign(Player player, String[] lines) {
+        if (!Objects.equals(lines[0], "ルール説明")) return;
+
+        if (Objects.equals(lines[1], "SpeedRun")) {
+            if (Objects.equals(lines[2], "シングルプレイ")) SpeedRunAction.ruleDescription(player);
+        } else if (Objects.equals(lines[1], "FreePVP")) {
+            FreePvpUtils.ruleExplain(player);
+        }
+    }
+
+    private void handleWallSign(Player player, String[] lines) {
+        if (Objects.equals(lines[0], "SpeedRunTest")) {
+            if (blockedByOtherGame(player)) return;
+            SpeedRunAction.openGameListInventory(player);
+        } else if (Objects.equals(lines[0], "1v1test")) {
+            if (blockedByOtherGame(player)) return;
+            openGameListInventory(player);
+        } else if (Objects.equals(lines[0], "FFA Games test")) {
+            if (blockedByOtherGame(player)) return;
+            InventoryUtils.openGameListInventory(player);
+        } else if (Objects.equals(lines[0], "右クリックして")) {
+            if (Objects.equals(lines[1], "あなたのスコアを") && Objects.equals(lines[2], "リセットします")) {
+                AthleticUtils.sendClearAthleticTimeRequest(player);
+            } else if (Objects.equals(lines[1], "弓と矢をゲット")) {
+                player.getInventory().addItem(new ItemStack(Material.ARROW, 1));
+                player.getInventory().addItem(new ItemStack(Material.BOW, 1));
             }
         }
+    }
+
+    private void handleRightClickAir(Player player) {
+        Material inHand = player.getInventory().getItemInMainHand().getType();
+
+        if (inHand == Material.RED_MUSHROOM) {
+            Config.beforeGame(player);
+            if (Config.lobby != null) player.teleport(Config.lobby);
+        } else if (inHand == Material.FEATHER) {
+            SpeedRunAction.clickedFeather(player);
+        } else if (inHand == Material.GOLD_BLOCK) {
+            SpeedRunAction.clickedGoldBlock(player);
+        } else if (inHand == Material.NETHER_STAR) {
+            SpeedRunAction.clickedNetherStar(player);
+        } else if (inHand == Material.RED_DYE) {
+            OneVersusOneGames.clickedRed_Dye(player);
+        } else if (inHand == Material.BLUE_DYE) {
+            FfaGames.clickedBlue_Dye(player);
+        }
+    }
+
+    private boolean blockedByOtherGame(Player player) {
+        if (!Config.overLappingTrigger(player)) return false;
+        Config.overLappingMessage(player);
+        return true;
     }
 }

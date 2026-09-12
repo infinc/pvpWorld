@@ -1,83 +1,61 @@
 package org.tofu.pvpWorld.utils.athletic;
 
 import org.tofu.pvpWorld.PvpWorld;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.tofu.pvpWorld.utils.textComponent;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class AthleticTimer {
-    // プレイヤーごとに実行中のタスクを保存するマップ
-    public static HashMap<Player, BukkitTask> tasks = new HashMap<>();
 
-    // プレイヤーごとに経過時間を保存するマップ
-    public static HashMap<Player, Integer> playerTimes = new HashMap<>();
+    private static final int TIME_LIMIT = 500;
 
-    /**
-     * プレイヤーのタイマーを開始します。
-     *
-     * @param player プレイヤー
-     * @param plugin PvpWorldプラグインのインスタンス
-     */
+    private static final Map<UUID, BukkitTask> tasks = new HashMap<>();
+
+    private static final Map<UUID, Integer> playerTimes = new HashMap<>();
+
     public static void startTimer(Player player, PvpWorld plugin) {
-        // 既にタイマーが動いていたら、一度停止してリセットする
-        if (tasks.containsKey(player)) {
-            org.tofu.pvpWorld.utils.lobbyAthletic.AthleticTimer.stopTimer(player);
-        }
+        UUID uuid = player.getUniqueId();
+        stopTimer(player);
+        playerTimes.put(uuid, 0);
 
-        // プレイヤーの時間を0に初期化
-        playerTimes.put(player, -1);
-
-        // プレイヤー専用のBukkitRunnableを作成
-        BukkitRunnable playerTask = new BukkitRunnable() {
+        BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
-                // playerTimesから現在の時間を取得（もし存在しなければ0）して1足す
-                // このrun()が呼ばれる前にstopTimerで削除されてもエラーにならないよう getOrDefault を使用
-                int elapsedTime = playerTimes.getOrDefault(player, 0) + 1;
-
-                if (elapsedTime > 500) {
-                    // 時間制限に達した場合
-                    player.sendMessage(textComponent.parse("<aqua>時間制限です!"));
-
-                    // stopTimerを呼んで、タスクのキャンセルとマップからの削除を行う
-                    org.tofu.pvpWorld.utils.lobbyAthletic.AthleticTimer.stopTimer(player);
-
-                    return; // run()メソッドを終了（これ以上レベル設定などをしない）
+                if (!player.isOnline()) {
+                    stopTimer(player);
+                    return;
                 }
 
-                // 時間とレベルを更新
-                playerTimes.put(player, elapsedTime);
+                int elapsedTime = playerTimes.getOrDefault(uuid, 0) + 1;
+
+                if (elapsedTime > TIME_LIMIT) {
+                    player.sendMessage(textComponent.parse("<aqua>時間制限です!"));
+                    stopTimer(player);
+                    return;
+                }
+
+                playerTimes.put(uuid, elapsedTime);
                 player.setLevel(elapsedTime);
             }
-        };
+        }.runTaskTimer(plugin, 20L, 20L);
 
-        // タスクを開始し（0ティック後から20ティック＝1秒ごと）、そのIDをtasksマップに保存
-        BukkitTask task = playerTask.runTaskTimer(plugin, 0L, 20L);
-        tasks.put(player, task);
+        tasks.put(uuid, task);
     }
 
-
-    /**
-     * プレイヤーのタイマーを停止し、関連データをクリーンアップします。
-     *
-     * @param player プレイヤー
-     */
     public static void stopTimer(Player player) {
-        // プレイヤーのタスクがtasksマップに存在するか確認
-        if (tasks.containsKey(player)) {
-            // タスクIDを取得してキャンセル
-            tasks.get(player).cancel();
-        }
-
-        // ‼️ 重要: タスクを停止したら、必ずマップからプレイヤーの情報を削除します
-        tasks.remove(player);
-        playerTimes.remove(player);
-
-        // (任意) プレイヤーのレベル表示をリセット
+        UUID uuid = player.getUniqueId();
+        BukkitTask task = tasks.remove(uuid);
+        if (task != null) task.cancel();
+        playerTimes.remove(uuid);
         player.setLevel(0);
+    }
+
+    public static boolean isRunning(Player player) {
+        return tasks.containsKey(player.getUniqueId());
     }
 }

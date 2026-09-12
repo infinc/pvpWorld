@@ -1,38 +1,21 @@
 package org.tofu.pvpWorld.worldEvents;
 
+import org.tofu.pvpWorld.Config;
 import org.tofu.pvpWorld.PvpWorld;
-import org.bukkit.Bukkit;
-import org.bukkit.World;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 
-public class foodLevelChangeEvent implements Listener {
-    PvpWorld plugin;
-
-    private World world;
-
+public final class foodLevelChangeEvent implements Listener {
     public foodLevelChangeEvent(PvpWorld plugin) {
-        this.plugin = plugin;
-        this.plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                world = Bukkit.getWorld("pvpWorld");
-            }
-        }, 10L);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
-
 
     @EventHandler
     public void onFoodLevelChangeEvent(FoodLevelChangeEvent e) {
-        Entity entity = e.getEntity();
-        Player player = (Player) entity;
-        if (player == null) return;
-        World world = player.getWorld();
-        if (this.world != world) return;
+        if (!(e.getEntity() instanceof Player player)) return;
+        if (!Config.isPvpWorld(player.getWorld())) return;
         e.setCancelled(true);
     }
 }
